@@ -19,6 +19,20 @@ export function defaultAgentModelId(agent: AgentModelSource): string | null {
   );
 }
 
+export function mergeAgentModelChoice(
+  previous: AgentModelChoice | undefined,
+  next: { model?: string; reasoning?: string; serviceTier?: string },
+): AgentModelChoice {
+  const merged = { ...(previous ?? {}), ...next };
+  if (
+    Object.prototype.hasOwnProperty.call(next, 'serviceTier') &&
+    next.serviceTier === undefined
+  ) {
+    delete merged.serviceTier;
+  }
+  return merged;
+}
+
 export function normalizeAgentModelChoice(
   agent: AgentModelSource,
   choice: AgentModelChoice | undefined,

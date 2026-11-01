@@ -101,6 +101,7 @@ import {
   type SettingsSection,
   type SettingsHighlight,
 } from './components/SettingsDialog';
+import { mergeAgentModelChoice } from './components/agentModelSelection';
 import { PrivacyConsentModal } from './components/PrivacyConsentModal';
 import { TestCampaignModal, observeTestRuntimeIdentity } from './components/TestCampaignModal';
 import { ProductionCampaignModal } from './components/ProductionCampaignModal';
@@ -435,6 +436,8 @@ function mergeLinkedDirsIntoMetadata(
   };
 }
 
+export { mergeAgentModelChoice };
+
 function sameAgentModelChoice(
   left: AgentModelChoice | undefined,
   right: AgentModelChoice | undefined,
@@ -442,20 +445,6 @@ function sameAgentModelChoice(
   return (left?.model ?? null) === (right?.model ?? null)
     && (left?.reasoning ?? null) === (right?.reasoning ?? null)
     && (left?.serviceTier ?? null) === (right?.serviceTier ?? null);
-}
-
-export function mergeAgentModelChoice(
-  previous: AgentModelChoice | undefined,
-  next: { model?: string; reasoning?: string; serviceTier?: string },
-): AgentModelChoice {
-  const merged = { ...(previous ?? {}), ...next };
-  if (
-    Object.prototype.hasOwnProperty.call(next, 'serviceTier') &&
-    next.serviceTier === undefined
-  ) {
-    delete merged.serviceTier;
-  }
-  return merged;
 }
 
 function clearStaleAmrModelChoiceOnProfileChange(
