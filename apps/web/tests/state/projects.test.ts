@@ -22,6 +22,8 @@ import {
   installPluginSource,
   listPlugins,
   listPluginsFresh,
+  listPluginsFreshOrNull,
+  listPluginsOrNull,
   listMessages,
   invalidatePluginCatalogCache,
   listProjects,
@@ -1449,6 +1451,24 @@ describe('listPlugins', () => {
     const rows = await listPlugins({ includeHidden: true });
 
     expect(rows.map((row) => row.id)).toEqual(['od-default', 'od-new-generation']);
+  });
+
+  it('tells a failed catalog read apart from an empty catalog', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => new Response('unavailable', { status: 503 })));
+    expect(await listPluginsOrNull()).toBeNull();
+    expect(await listPluginsFreshOrNull()).toBeNull();
+    expect(await listPlugins()).toEqual([]);
+
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => {
+      throw new TypeError('Failed to fetch');
+    }));
+    expect(await listPluginsOrNull()).toBeNull();
+
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>(async () => new Response(
+      JSON.stringify({ plugins: [] }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    )));
+    expect(await listPluginsOrNull()).toEqual([]);
   });
 
   it('keeps a settled signed-out catalog request headerless', async () => {

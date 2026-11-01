@@ -2004,6 +2004,18 @@ function cacheVisiblePlugins(
 export async function listPlugins(
   options: ListPluginsOptions = {},
 ): Promise<InstalledPluginRecord[]> {
+  return (await listPluginsOrNull(options)) ?? [];
+}
+
+/**
+ * Like `listPlugins`, but a failed read resolves to `null` instead of an empty
+ * catalog. Callers that act on what is NOT installed (dropping a saved pick,
+ * unbinding a selection) need that distinction: a daemon that did not answer
+ * says nothing about which plugins exist.
+ */
+export async function listPluginsOrNull(
+  options: ListPluginsOptions = {},
+): Promise<InstalledPluginRecord[] | null> {
   const cacheKey = pluginCatalogCacheKey(options);
   const requestGeneration = (pluginCatalogCacheGenerations.get(cacheKey) ?? 0) + 1;
   pluginCatalogCacheGenerations.set(cacheKey, requestGeneration);
@@ -2022,7 +2034,7 @@ export async function listPlugins(
       '/api/plugins',
       options.workspaceContext ? { headers: workspaceProjectHeaders(options.workspaceContext) } : undefined,
     );
-    if (!resp.ok) return [];
+    if (!resp.ok) return null;
     const json = (await resp.json()) as { plugins?: InstalledPluginRecord[] };
     const plugins = json.plugins ?? [];
     const visible = plugins.filter(isVisiblePlugin);
@@ -2031,7 +2043,7 @@ export async function listPlugins(
     }
     return options.includeHidden ? plugins : visible;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -2042,11 +2054,18 @@ export async function listPlugins(
 export async function listPluginsFresh(
   options: Pick<ListPluginsOptions, 'workspaceContext' | 'accountGeneration'> = {},
 ): Promise<InstalledPluginRecord[]> {
+  return (await listPluginsFreshOrNull(options)) ?? [];
+}
+
+/** `listPluginsFresh` with a failed read resolving to `null` (see `listPluginsOrNull`). */
+export async function listPluginsFreshOrNull(
+  options: Pick<ListPluginsOptions, 'workspaceContext' | 'accountGeneration'> = {},
+): Promise<InstalledPluginRecord[] | null> {
   const cached = cachedVisiblePlugins.get(pluginCatalogCacheKey(options));
   if (cached && Date.now() - cached.cachedAt < PLUGINS_CACHE_TTL_MS) {
     return cached.plugins;
   }
-  return listPlugins(options);
+  return listPluginsOrNull(options);
 }
 
 /**

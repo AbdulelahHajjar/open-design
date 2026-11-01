@@ -7,6 +7,7 @@ import { configure } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 import { resetPluginsCache } from '../../src/state/projects';
+import { clearHomeComposerSession } from '../../src/state/home-composer-session';
 
 // Failure budget for waitFor/findBy under CI CPU contention — not expected
 // duration. Recent Web workspace flakes clustered at 1015–1093ms, so 3s gives
@@ -21,6 +22,9 @@ configure({ asyncUtilTimeout: 3_000 });
 // clear it after every case — each test then observes only its own mock.
 afterEach(() => {
   resetPluginsCache();
+  // The Home composer session is module-level for the same remount-survival
+  // reason; clear it so one case's picks never seed the next case's Home.
+  clearHomeComposerSession();
 });
 
 // jsdom does not implement geometry for Range/Element, but Lexical's

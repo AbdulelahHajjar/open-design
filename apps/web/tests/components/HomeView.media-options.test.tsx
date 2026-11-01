@@ -601,6 +601,36 @@ describe('HomeView media composer options', () => {
     expect(new Headers(apply?.[1]?.headers).has('x-od-workspace-id')).toBe(false);
   });
 
+  it('restores a saved Image type with the same media setup as picking it', async () => {
+    stubFetch();
+    const picked = vi.fn();
+    const first = renderHome({ onSubmit: picked });
+    await clickHomeRailChip('image');
+    await waitFor(() => expect(screen.getByTestId('home-hero-template-trigger').textContent).toContain('Image'));
+    await setHomePrompt('Create a campaign image.');
+    await submitHome();
+    await waitFor(() => expect(picked).toHaveBeenCalledTimes(1));
+    first.unmount();
+
+    // The type saved for the next app start, as the click left it.
+    window.localStorage.setItem(
+      'open-design:home-composer:chip',
+      JSON.stringify({ chipId: 'image', pluginId: 'od-media-generation', projectKind: 'image' }),
+    );
+    const restored = vi.fn();
+    renderHome({ onSubmit: restored });
+    await waitFor(() => expect(screen.getByTestId('home-hero-template-trigger').textContent).toContain('Image'));
+    await setHomePrompt('Create a campaign image.');
+    await submitHome();
+    await waitFor(() => expect(restored).toHaveBeenCalledTimes(1));
+
+    const [pickedPayload] = picked.mock.calls[0] as [{ projectKind: unknown; projectMetadata: unknown; pluginInputs: unknown }];
+    const [restoredPayload] = restored.mock.calls[0] as [typeof pickedPayload];
+    expect(restoredPayload.projectKind).toEqual(pickedPayload.projectKind);
+    expect(restoredPayload.projectMetadata).toEqual(pickedPayload.projectMetadata);
+    expect(restoredPayload.pluginInputs).toEqual(pickedPayload.pluginInputs);
+  });
+
   it('preserves od-media-generation required inputs when submitting media chips', async () => {
     const fetchMock = stubFetch();
     const onSubmit = vi.fn();

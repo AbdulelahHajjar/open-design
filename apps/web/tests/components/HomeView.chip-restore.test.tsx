@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { pickHomeTemplate, homeTemplateTrigger } from '../helpers/home-template-picker';
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/components/home-hero/PlaceholderCarousel', () => ({
@@ -21,6 +21,7 @@ vi.mock('../../src/collab/useWorkspaceContext', async (importOriginal) => {
 });
 
 import { HomeView } from '../../src/components/HomeView';
+import { setHomeHeroPrompt } from '../helpers/home-hero-lexical';
 
 // Regression coverage for 飞书 recvqg21bqVuvE (P0): the selected creation-type
 // chip and its bound example-prompt plugin were lost whenever the user
@@ -252,6 +253,57 @@ describe('HomeView chip/plugin selection survives a real unmount+remount', () =>
     expect(fetchMock.mock.calls.some(
       ([url]) => typeof url === 'string' && url.includes('/api/plugins/example-web-prototype/apply'),
     )).toBe(false);
+  });
+
+  it('keeps a saved type when the plugin catalog cannot be read, and restores it once it can', async () => {
+    window.localStorage.setItem(
+      'open-design:home-composer:chip',
+      JSON.stringify({ chipId: 'prototype', pluginId: 'example-web-prototype', projectKind: 'prototype' }),
+    );
+    let catalogReadable = false;
+    const fetchMock = vi.fn<typeof fetch>(async (url) => {
+      if (url === '/api/plugins') {
+        return catalogReadable
+          ? new Response(JSON.stringify({ plugins: [WEB_PROTOTYPE_PLUGIN] }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            })
+          : new Response(JSON.stringify({ error: 'unavailable' }), { status: 503 });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    stubAnimationFrame();
+
+    render(
+      <HomeView
+        projects={[]}
+        onSubmit={() => undefined}
+        onOpenProject={() => undefined}
+      />,
+    );
+
+    await screen.findByTestId('home-hero-input');
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/plugins', undefined));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // A failed read says nothing about what is installed.
+    expect(JSON.parse(window.localStorage.getItem('open-design:home-composer:chip') ?? 'null'))
+      .toMatchObject({ chipId: 'prototype', pluginId: 'example-web-prototype' });
+    // ...and the composer stays usable while the saved type waits.
+    setHomeHeroPrompt('A landing page for a bakery.');
+    await waitFor(() => {
+      expect((screen.getByTestId('home-hero-submit') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    catalogReadable = true;
+    await act(async () => {
+      window.dispatchEvent(new Event('open-design:plugins-changed'));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('home-hero-template-trigger').textContent).toContain('Prototype');
+    });
   });
 
   it('silently drops a persisted chip pointing at a since-uninstalled plugin', async () => {
