@@ -53,6 +53,7 @@ export type ToolPackCliOptions = {
   headless?: boolean;
   json?: boolean;
   macCompression?: string;
+  disableUpdates?: boolean;
   notarize?: boolean;
   namespace?: string;
   path?: string;
@@ -105,6 +106,8 @@ export type ToolPackConfig = {
   removeSidecars: boolean;
   requireVelaCli: boolean;
   roots: ToolPackRoots;
+  /** Bakes `updatesEnabled: false` into the packaged config, so the app never self-updates. */
+  updatesDisabled?: boolean;
   silent: boolean;
   signed: boolean;
   amrProfile?: ToolPackAmrProfile;
@@ -435,6 +438,7 @@ export function resolveToolPackConfig(
     removeProductUserData: options.removeProductUserData === true,
     removeSidecars: options.removeSidecars === true,
     requireVelaCli: options.requireVelaCli === true,
+    updatesDisabled: options.disableUpdates === true,
     silent: options.silent !== false,
     signed: options.signed === true,
     amrEndpointBinding,

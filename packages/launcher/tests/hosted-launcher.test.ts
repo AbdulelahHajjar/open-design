@@ -83,6 +83,19 @@ it("keeps a physical newer compatible payload when a same-version installer is a
  await writeFile(join(f.launcher,"runtime.json"),JSON.stringify({schemaVersion:1,channel:"stable",namespace:"default",active:{version:"1.2.0",generation:4},lastSuccessful:{version:"1.1.0",generation:3}}));
  const host=await boot(f);expect(host.running.version).toBe("1.2.0");expect(host.snapshot().lastSuccessful?.version).toBe("1.0.0");
 });
+it("runs bundled code over a newer compatible payload when the build has updates turned off",async()=>{
+ const f=await fixture();const configPath=join(f.resources,"open-design-config.json");
+ await writeFile(configPath,JSON.stringify({...JSON.parse(await readFile(configPath,"utf8")),updatesEnabled:false}));
+ await addPayload(f,"1.2.0");await mkdir(join(f.launcher,"state"),{recursive:true});
+ await writeFile(join(f.launcher,"runtime.json"),JSON.stringify({schemaVersion:1,channel:"stable",namespace:"default",active:{version:"1.2.0",generation:4},lastSuccessful:{version:"1.2.0",generation:4}}));
+ await writeFile(join(f.launcher,"state","attempt.json"),JSON.stringify({schemaVersion:1,channel:"stable",namespace:"default",version:"1.2.0",generation:4,startedAt:new Date().toISOString()}));
+ const host=await boot(f,["--od-launcher-delegated-version","1.2.0","--od-launcher-delegated-generation","4"]);
+ expect(host.running).toMatchObject({source:"bundled",version:"1.0.0"});expect(host.selection).toBeNull();expect(host.rolledBackFromVersion).toBeNull();
+ expect(f.app.setAppPath).not.toHaveBeenCalled();
+ await host.reportReady();
+ expect(host.snapshot()).toMatchObject({active:{version:"1.0.0",generation:0},lastSuccessful:{version:"1.0.0",generation:0}});
+ await expect(readFile(join(f.launcher,"state","attempt.json"))).rejects.toThrow();
+});
 it("rejects incompatible payload activation before changing the active journal",async()=>{
  const f=await fixture();const host=await boot(f);await host.reportReady();await addPayload(f,"1.1.0",{host:{...environment,electronVersion:"42.0.0"}});
  const before=await readFile(join(f.launcher,"runtime.json"),"utf8");

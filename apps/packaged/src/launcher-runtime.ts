@@ -435,6 +435,10 @@ function cleanupEntriesForSupersededRuntime(
   return [...byVersion.values()].sort((left, right) => compareLauncherVersions(left.version, right.version) || left.version.localeCompare(right.version));
 }
 
+function isBoundPackagePointer(pointer: LauncherVersionPointer | null, boundVersion: string): boolean {
+  return pointer?.generation === 0 && pointer.version === boundVersion;
+}
+
 async function reconcileRuntimeWithBoundPackage(
   config: PackagedConfig,
   descriptor: LauncherRuntimeDescriptor,
@@ -443,8 +447,15 @@ async function reconcileRuntimeWithBoundPackage(
 ): Promise<LauncherRuntimeDescriptor> {
   const boundVersion = config.appVersion == null ? null : normalizeLauncherVersion(config.appVersion);
   if (boundVersion == null) return descriptor;
-  const maxPersistedVersion = maxRuntimePointer(descriptor);
-  if (maxPersistedVersion != null && compareLauncherVersions(boundVersion, maxPersistedVersion) <= 0) return descriptor;
+  if (config.updatesEnabled === false) {
+    // A build packaged with updates off always runs its own bundled generation,
+    // even when an earlier install left a payload at the same or a newer version.
+    if (isBoundPackagePointer(descriptor.active, boundVersion)
+      && isBoundPackagePointer(descriptor.lastSuccessful, boundVersion)) return descriptor;
+  } else {
+    const maxPersistedVersion = maxRuntimePointer(descriptor);
+    if (maxPersistedVersion != null && compareLauncherVersions(boundVersion, maxPersistedVersion) <= 0) return descriptor;
+  }
   const pointer = { generation: 0, version: boundVersion };
   const updatedAt = new Date().toISOString();
   const next: LauncherRuntimeDescriptor = {

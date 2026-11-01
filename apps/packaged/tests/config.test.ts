@@ -4,9 +4,18 @@ import { describe, expect, it } from 'vitest';
 
 import {
   PACKAGED_NAMESPACE_BASE_ROOT_ENV,
+  packagedUpdatesEnabled,
   resolvePackagedAmrProfile,
   resolvePackagedNamespaceBaseRoot,
 } from '../src/config.js';
+
+describe('packagedUpdatesEnabled', () => {
+  it('keeps updates on unless the build baked an explicit false', () => {
+    expect(packagedUpdatesEnabled({})).toBe(true);
+    expect(packagedUpdatesEnabled({ updatesEnabled: true })).toBe(true);
+    expect(packagedUpdatesEnabled({ updatesEnabled: false })).toBe(false);
+  });
+});
 
 describe('resolvePackagedNamespaceBaseRoot', () => {
   it('lets a historical handoff preserve the already-resolved namespace base root', () => {

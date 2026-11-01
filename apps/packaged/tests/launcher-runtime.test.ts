@@ -32,6 +32,7 @@ function fakeConfig(root: string, appVersion = "1.2.3-beta.4"): PackagedConfig {
     resourceRoot: join(root, "installed", "resources", "open-design"),
     telemetryRelayUrl: null,
     updateMetadataUrl: null,
+    updatesEnabled: true,
     velaWebUrl: null,
     webOutputMode: "server",
     webSidecarEntry: null,
@@ -679,6 +680,26 @@ describe("resolvePackagedLauncherRuntime", () => {
       });
       expect(runtime.source).toBe("current-package");
       expect(runtime.config.appVersion).toBe("1.2.3-beta.4");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("keeps a build packaged with updates off on its own bundled generation over a newer payload", async () => {
+    const root = await mkdtemp(join(tmpdir(), "od-packaged-launcher-updates-off-"));
+    try {
+      const config = { ...fakeConfig(root, "1.2.3-beta.4"), updatesEnabled: false };
+      const paths = resolvePackagedNamespacePaths(config);
+      await writeActiveMacPayloadFixture(root, config);
+
+      const runtime = await resolvePackagedLauncherRuntime(config, paths);
+
+      expect(runtime.source).toBe("current-package");
+      expect(runtime.config.appVersion).toBe("1.2.3-beta.4");
+      expect(JSON.parse(await readFile(runtime.launcherPaths.runtimePath, "utf8"))).toMatchObject({
+        active: { generation: 0, version: "1.2.3-beta.4" },
+        lastSuccessful: { generation: 0, version: "1.2.3-beta.4" },
+      });
     } finally {
       await rm(root, { force: true, recursive: true });
     }

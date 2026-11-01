@@ -344,8 +344,9 @@ async function main(): Promise<void> {
   });
   applyPackagedElectronPathOverrides(paths);
   // The shared beta feed can replace the entire outer with an unbound build.
-  // Use the existing updater gate for this fixed-environment dogfood package.
-  if (activeConfig.amrEndpointBinding) process.env.OD_UPDATE_ENABLED = "0";
+  // Use the existing updater gate for this fixed-environment dogfood package,
+  // and for builds packaged with updates turned off.
+  if (activeConfig.amrEndpointBinding || !activeConfig.updatesEnabled) process.env.OD_UPDATE_ENABLED = "0";
   applyPackagedUpdaterEnv(activeConfig.updateMetadataUrl);
   let pendingDesktopIntent = false;
   let restoreDeferredDesktop: (() => void) | null = null;

@@ -43,6 +43,9 @@ export type RawPackagedConfig = {
   // the daemon at runtime; Langfuse credentials never ship in packaged config.
   telemetryRelayUrl?: string;
   updateMetadataUrl?: string;
+  // `false` when tools/pack was run with --disable-updates: the in-app updater
+  // stays off for this build. Absent means updates are on.
+  updatesEnabled?: boolean;
   // PostHog product-analytics ingest key, baked by tools/pack from
   // process.env.POSTHOG_KEY at packaging time. Forwarded to the daemon
   // sidecar's spawn env as POSTHOG_KEY. `phc_` keys are public ingest
@@ -76,6 +79,7 @@ export type PackagedConfig = {
   resourceRoot: string;
   telemetryRelayUrl: string | null;
   updateMetadataUrl: string | null;
+  updatesEnabled: boolean;
   posthogKey: string | null;
   posthogHost: string | null;
   velaWebUrl: string | null;
@@ -194,6 +198,11 @@ async function resolvePackagedRelativeEntry(value: string | undefined): Promise<
   return entry;
 }
 
+/** Only an explicit `false` turns the updater off; anything else keeps it on. */
+export function packagedUpdatesEnabled(raw: Pick<RawPackagedConfig, "updatesEnabled">): boolean {
+  return raw.updatesEnabled !== false;
+}
+
 export async function readPackagedConfig(): Promise<PackagedConfig> {
   const raw = await readRawPackagedConfig();
   const amrEndpointBinding = parseAmrEndpointBinding(raw.amrEndpointBinding);
@@ -240,6 +249,7 @@ export async function readPackagedConfig(): Promise<PackagedConfig> {
     resourceRoot,
     telemetryRelayUrl: cleanOptionalString(raw.telemetryRelayUrl),
     updateMetadataUrl: cleanOptionalString(raw.updateMetadataUrl),
+    updatesEnabled: packagedUpdatesEnabled(raw),
     posthogKey: cleanOptionalString(raw.posthogKey),
     posthogHost: cleanOptionalString(raw.posthogHost),
     velaWebUrl: amrEndpointBinding?.webUrl ?? cleanOptionalString(raw.velaWebUrl),

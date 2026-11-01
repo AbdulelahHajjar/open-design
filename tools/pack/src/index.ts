@@ -97,7 +97,8 @@ function addBuildOptions(command: CacCommand, platform: ToolPackPlatform) {
 
 function addMacBuildOptions(command: CacCommand) {
   return addBuildOptions(command, "mac")
-    .option("--mac-compression <mode>", "mac artifact compression: normal|maximum|store (default: normal)");
+    .option("--mac-compression <mode>", "mac artifact compression: normal|maximum|store (default: normal)")
+    .option("--disable-updates", "turn off the in-app updater in the packaged mac app");
 }
 
 function addWinLifecycleOptions(command: CacCommand) {

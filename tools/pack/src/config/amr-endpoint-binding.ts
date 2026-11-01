@@ -24,7 +24,10 @@ export function packagedAmrConfigFields(config: Pick<
   };
 }
 
-/** Config is stamped on every cache materialization; verify the bytes written. */
+/**
+ * Config is stamped on every cache materialization; verify the bytes written.
+ * Checks the AMR endpoint binding and the updater switch (`updatesEnabled`).
+ */
 export async function writePackagedConfigWithBinding(filePath: string, body: string): Promise<void> {
   await writeFile(filePath, body, "utf8");
   await assertPackagedConfigBinding(filePath, body);
@@ -36,6 +39,9 @@ export async function assertPackagedConfigBinding(filePath: string, expectedBody
   const binding = parseAmrEndpointBinding(expected.amrEndpointBinding);
   if (JSON.stringify(parseAmrEndpointBinding(actual.amrEndpointBinding)) !== JSON.stringify(binding)) {
     throw new Error(`Packaged AMR endpoint binding differs from the requested environment: ${filePath}`);
+  }
+  if (actual.updatesEnabled !== expected.updatesEnabled) {
+    throw new Error(`Packaged updater switch differs from the requested build: ${filePath}`);
   }
   if (binding && (actual.amrProfile !== binding.profile
     || actual.velaWebUrl !== binding.webUrl

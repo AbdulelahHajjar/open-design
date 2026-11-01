@@ -70,6 +70,7 @@ function resolveHeadlessConfig(): PackagedConfig {
     telemetryRelayUrl:
       process.env.OPEN_DESIGN_TELEMETRY_RELAY_URL?.trim() || null,
     updateMetadataUrl: process.env.OD_UPDATE_METADATA_URL?.trim() || null,
+    updatesEnabled: true,
     posthogKey: process.env.POSTHOG_KEY?.trim() || null,
     posthogHost: process.env.POSTHOG_HOST?.trim() || null,
     velaWebUrl: amrEndpointBinding?.webUrl ?? (process.env.OD_VELA_WEB_URL?.trim() || null),

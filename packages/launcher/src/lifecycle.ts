@@ -24,6 +24,7 @@ type RawConfig = {
   namespace?: string;
   namespaceBaseRoot?: string;
   launcherHost?: LauncherHostEnvironment;
+  updatesEnabled?: boolean;
 };
 type HostBinding = {
   contractVersion: number;
@@ -238,11 +239,18 @@ function selectApplication(
   const { paths, version, resourcesPath, executablePath } = installation;
   const { runtime, attempt } = startup;
   const baselinePointer = { version, generation: 0 };
+  const bundled: LauncherHostRunningCode = { appRoot: options.appRoot, resourcesPath, executablePath, source: "bundled", version };
+  // A build packaged with updates off always runs its own code, even when an
+  // earlier install left a newer payload selected. Readiness then points the
+  // journal back at this package.
+  if (installation.config.updatesEnabled === false) {
+    return { entry: options.bundledEntry, running: bundled, selection: null, rolledBackFromVersion: null };
+  }
   const selected = selectLauncherRuntimeTarget({ runtime, attempted: attempt, delegated: parseLauncherDelegatedArgs(argv) });
   let target = selected.selected ? selected.pointer : baselinePointer;
   const application: ApplicationSelection = {
     entry: options.bundledEntry,
-    running: { appRoot: options.appRoot, resourcesPath, executablePath, source: "bundled", version },
+    running: bundled,
     selection: null,
     rolledBackFromVersion: attempt != null && runtime.active?.version === attempt.version &&
       runtime.active.generation === attempt.generation && selected.selected && selected.reason === "last-successful"

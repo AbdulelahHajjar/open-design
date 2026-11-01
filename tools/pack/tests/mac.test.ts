@@ -6,6 +6,7 @@ import process from "node:process";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { ToolPackConfig } from "@/config/index.js";
+import { assertPackagedConfigBinding } from "@/config/amr-endpoint-binding.js";
 import {
   copyMacPrebundleRuntimeDependencies,
   copyResourceTree,
@@ -290,6 +291,34 @@ describe("renderMacPackagedConfig", () => {
         }),
       ) as Record<string, unknown>;
       expect(packagedConfig).not.toHaveProperty("nodeCommandRelative");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("turns the in-app updater off only when the build asks for it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "open-design-tools-pack-mac-"));
+    try {
+      const render = (config: ToolPackConfig) => JSON.parse(
+        renderMacPackagedConfig({ appVersion: "1.2.3", config, usePrebundledStandaloneWeb: true }),
+      ) as Record<string, unknown>;
+
+      expect(render(makeConfig(root, { updatesDisabled: true })).updatesEnabled).toBe(false);
+      expect(render(makeConfig(root))).not.toHaveProperty("updatesEnabled");
+    } finally {
+      await rm(root, { force: true, recursive: true });
+    }
+  });
+
+  it("refuses a written config whose updater switch differs from the build", async () => {
+    const root = await mkdtemp(join(tmpdir(), "open-design-tools-pack-mac-"));
+    try {
+      const filePath = join(root, "open-design-config.json");
+      await writeFile(filePath, JSON.stringify({ namespace: "local-test" }), "utf8");
+      await expect(assertPackagedConfigBinding(
+        filePath,
+        JSON.stringify({ namespace: "local-test", updatesEnabled: false }),
+      )).rejects.toThrow(/updater switch/);
     } finally {
       await rm(root, { force: true, recursive: true });
     }
