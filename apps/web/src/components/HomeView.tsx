@@ -43,8 +43,8 @@ import {
   applyPlugin,
   createProject,
   duplicatePluginAsProject,
-  listPlugins,
-  listPluginsFresh,
+  listPluginsFreshOrNull,
+  listPluginsOrNull,
   pluginCatalogCacheKey,
   readCachedVisiblePlugins,
   patchProject,
@@ -58,6 +58,13 @@ import {
   clearHomeComposerAttachments,
   peekHomeComposerAttachments,
 } from '../state/home-composer-stash';
+import {
+  clearSentHomeComposerSession,
+  homeComposerSessionRevision,
+  peekHomeComposerSession,
+  saveHomeComposerSession,
+  type HomeComposerSession,
+} from '../state/home-composer-session';
 import { FigmaImportModal } from './FigmaImportModal';
 import { fetchMcpServers } from '../state/mcp';
 import { takeHomeComposerAssetSeed } from '../state/libraryHandoff';
@@ -219,17 +226,17 @@ export interface ActivePlugin {
 // contexts are dropped once their `@` token is deleted; context-only ones stay
 // selected until explicitly removed. Conflating the two drops plain `Use`
 // selections from the submit payload because they never carry a token.
-interface SelectedPluginContext {
+export interface SelectedPluginContext {
   record: InstalledPluginRecord;
   inlineBacked: boolean;
 }
 
-interface SelectedMcpContext {
+export interface SelectedMcpContext {
   server: McpServerConfig;
   inlineBacked: boolean;
 }
 
-interface SelectedConnectorContext {
+export interface SelectedConnectorContext {
   connector: ConnectorDetail;
   inlineBacked: boolean;
 }
@@ -350,10 +357,10 @@ const EMPTY_PROMPT_TEMPLATES: PromptTemplateSummary[] = [];
 // system vanish when the user steps away and comes back. Persist those two
 // serializable, user-visible fields to localStorage so they survive the
 // unmount/remount, mirroring ChatComposer's draft persistence. Object-valued
-// selections (active template, skill, staged files, working directory) are
-// intentionally NOT persisted here — they reference live catalogue records /
-// File handles / a desktop auth token that cannot round-trip through JSON
-// safely.
+// selections (active template, skill, staged files, working directory, linked
+// folders, @-mentions) reference live catalogue records / File handles / a
+// desktop auth token that cannot round-trip through JSON safely; they live in
+// memory instead (`state/home-composer-session.ts`) and last until restart.
 const HOME_COMPOSER_PROMPT_KEY = 'open-design:home-composer:prompt';
 const HOME_COMPOSER_DESIGN_SYSTEM_KEY = 'open-design:home-composer:design-system';
 const HOME_COMPOSER_DESIGN_SYSTEM_SCOPE_KEY = 'open-design:home-composer:design-system-scope';
@@ -392,6 +399,12 @@ interface HomeComposerChipDraft {
 // live event too so an already-mounted HomeView can pick up the seed
 // directly; the draft key stays as the true-cold-mount fallback.
 const HOME_COMPOSER_SEED_EVENT = 'open-design:home-composer:seed';
+
+/** `current` plus each of `incoming` it does not already hold. */
+function withNewFiles(current: File[], incoming: readonly File[]): File[] {
+  const added = incoming.filter((file) => !current.includes(file));
+  return added.length === 0 ? current : [...current, ...added];
+}
 
 function readHomeComposerDraft(key: string): string | null {
   if (typeof window === 'undefined') return null;
@@ -589,6 +602,12 @@ export function HomeView({
   const [pluginsLoading, setPluginsLoading] = useState(
     () => initialPluginsRef.current === null,
   );
+  // True when `plugins` came from a successful read, live or cached. Only then
+  // can a missing id mean "uninstalled": before the first read ever answers,
+  // or after every read failed, the empty list says nothing about what exists.
+  const [pluginCatalogVerified, setPluginCatalogVerified] = useState(
+    () => initialPluginsRef.current !== null,
+  );
   // Home stays mounted while entry-shell views and Workspaces change. Never
   // commit one render with the previous identity's plugin catalogue: switch to
   // the exact new cache partition synchronously, or mask the old rows while a
@@ -600,6 +619,7 @@ export function HomeView({
     setPluginCatalogKey(desiredPluginCatalogKey);
     setPlugins(cached ?? []);
     setPluginsLoading(cached === null);
+    setPluginCatalogVerified(cached !== null);
   }
   const [pendingApplyId, setPendingApplyId] = useState<string | null>(null);
   const [pendingChipId, setPendingChipId] = useState<string | null>(null);
@@ -610,17 +630,27 @@ export function HomeView({
   );
   const [pendingPluginUseHandoff, setPendingPluginUseHandoff] =
     useState<PendingPluginUseHandoff | null>(null);
+  // The composer as Home last left it during this app session (see
+  // `state/home-composer-session.ts`), read once per mount. It seeds the live
+  // selections below directly, so they are back on the first frame.
+  const restoredSessionRef = useRef<HomeComposerSession | null | undefined>(undefined);
+  if (restoredSessionRef.current === undefined) {
+    restoredSessionRef.current = ownsComposerDraft ? peekHomeComposerSession() : null;
+  }
+  const restoredSession = restoredSessionRef.current;
   // The persisted chip/plugin identity, read exactly once on mount (lazy
   // initializer — mirrors `restoredDraftRef` below for the prompt/design
   // system draft). Resolved into a full `active` binding by the restore
   // effect further down once the plugin catalog has loaded, then cleared.
+  // Only needed when the session has no binding of its own, i.e. after a
+  // restart: the draft always mirrors `active`, so the two never disagree.
   const [pendingChipRestore, setPendingChipRestore] = useState<HomeComposerChipDraft | null>(
-    () => (ownsComposerDraft ? readHomeComposerChipDraft() : null),
+    () => (ownsComposerDraft && !restoredSession?.active ? readHomeComposerChipDraft() : null),
   );
   const [fallbackProjectKind, setFallbackProjectKind] = useState<ProjectKind | null>(null);
   const [fallbackProjectMetadata, setFallbackProjectMetadata] =
     useState<ProjectMetadata | null>(null);
-  const [active, setActive] = useState<ActivePlugin | null>(null);
+  const [active, setActive] = useState<ActivePlugin | null>(() => restoredSession?.active ?? null);
   const reconciledPluginCatalogKeyRef = useRef<string | null>(null);
   const previousWorkspaceNameRef = useRef<string | null>(null);
   // A placeholder-carousel scenario the user submitted on an empty composer.
@@ -640,29 +670,45 @@ export function HomeView({
     && !pinsPluginOverAutomaticRoute(active, active?.chipId ?? null)
     ? automaticStrategyTaskProfileForRouteId(active?.chipId ?? null)
     : null;
-  const [activeSkill, setActiveSkill] = useState<SkillSummary | null>(null);
+  const [activeSkill, setActiveSkill] = useState<SkillSummary | null>(
+    () => restoredSession?.activeSkill ?? null,
+  );
   const [activeSkillCatalogScope, setActiveSkillCatalogScope] =
-    useState<LocalCatalogScope | null>(null);
-  const [selectedPluginContexts, setSelectedPluginContexts] = useState<SelectedPluginContext[]>([]);
-  const [selectedMcpContexts, setSelectedMcpContexts] = useState<SelectedMcpContext[]>([]);
-  const [selectedConnectorContexts, setSelectedConnectorContexts] = useState<SelectedConnectorContext[]>([]);
-  const [contextWorkspaceItems, setContextWorkspaceItems] = useState<WorkspaceContextItem[]>([]);
-  // A failed optimistic create hands the staged attachments back through the
-  // stash (App owns the rollback); a plain mount starts empty. `peek` is
-  // side-effect free on purpose: StrictMode invokes this initializer twice and
-  // keeps only one result, so consuming here would hand the files to the
-  // discarded call. The effect below clears the slot once they are in state.
+    useState<LocalCatalogScope | null>(() => restoredSession?.activeSkillCatalogScope ?? null);
+  const [selectedPluginContexts, setSelectedPluginContexts] = useState<SelectedPluginContext[]>(
+    () => restoredSession?.selectedPluginContexts ?? [],
+  );
+  const [selectedMcpContexts, setSelectedMcpContexts] = useState<SelectedMcpContext[]>(
+    () => restoredSession?.selectedMcpContexts ?? [],
+  );
+  const [selectedConnectorContexts, setSelectedConnectorContexts] = useState<SelectedConnectorContext[]>(
+    () => restoredSession?.selectedConnectorContexts ?? [],
+  );
+  const [contextWorkspaceItems, setContextWorkspaceItems] = useState<WorkspaceContextItem[]>(
+    () => restoredSession?.contextWorkspaceItems ?? [],
+  );
+  // A plain mount starts from the session's files. A failed optimistic create
+  // also hands the staged attachments back through the stash (App owns the
+  // rollback); the session still holds those same files, since only an
+  // accepted send clears it, so they are added once. `peek` is side-effect
+  // free on purpose: StrictMode invokes this initializer twice and keeps only
+  // one result, so consuming here would hand the files to the discarded call.
+  // The effect below clears the slot once they are in state.
   const [stagedFiles, setStagedFiles] = useState<File[]>(() =>
-    ownsComposerDraft ? peekHomeComposerAttachments() : [],
+    ownsComposerDraft
+      ? withNewFiles(restoredSession?.stagedFiles ?? [], peekHomeComposerAttachments())
+      : [],
   );
   useEffect(() => {
     if (ownsComposerDraft) clearHomeComposerAttachments();
   }, [ownsComposerDraft]);
-  const [workingDir, setWorkingDir] = useState<string | null>(null);
+  const [workingDir, setWorkingDir] = useState<string | null>(() => restoredSession?.workingDir ?? null);
   // Token paired with `workingDir` when picked through the desktop host's
   // native dialog. Spent on the post-creation working-dir POST so the
   // daemon's desktop-auth gate accepts the path. Null for web picks.
-  const [workingDirToken, setWorkingDirToken] = useState<string | null>(null);
+  const [workingDirToken, setWorkingDirToken] = useState<string | null>(
+    () => restoredSession?.workingDirToken ?? null,
+  );
   // Global design-system selection for the home composer. Persistent and
   // independent of the active plugin / type chip so EVERY product kind (not
   // just prototype/deck) can pick a design system; the choice is forwarded as
@@ -760,9 +806,13 @@ export function HomeView({
   // Persist the active chip/plugin identity the same way — only the
   // serializable fields, not `active` itself (see the module note above).
   // Clearing on `active === null` covers the explicit-clear (×) and the
-  // Ask-mode / skill-pick paths that reset `active` to null directly.
+  // Ask-mode / skill-pick paths that reset `active` to null directly. While a
+  // saved pick is still waiting for the plugin catalog, `active` is null only
+  // because the restore has not run: keep the draft, or leaving Home before
+  // the catalog loads would lose the pick for good.
   useEffect(() => {
     if (!ownsComposerDraft) return;
+    if (!active && pendingChipRestore) return;
     writeHomeComposerChipDraft(
       active
         ? {
@@ -777,7 +827,39 @@ export function HomeView({
           }
         : null,
     );
-  }, [active, ownsComposerDraft]);
+  }, [active, ownsComposerDraft, pendingChipRestore]);
+  // Keep the in-memory session current so stepping away from Home (Settings,
+  // a project) and back finds the composer as the user left it. Once a send
+  // is accepted the composer is a project, not a draft: stop saving, so the
+  // state still on screen until the route changes is not revived later.
+  const composerSentRef = useRef(false);
+  useEffect(() => {
+    if (!ownsComposerDraft || composerSentRef.current) return;
+    saveHomeComposerSession({
+      active,
+      activeSkill,
+      activeSkillCatalogScope,
+      selectedPluginContexts,
+      selectedMcpContexts,
+      selectedConnectorContexts,
+      contextWorkspaceItems,
+      workingDir,
+      workingDirToken,
+      stagedFiles,
+    });
+  }, [
+    active,
+    activeSkill,
+    activeSkillCatalogScope,
+    contextWorkspaceItems,
+    ownsComposerDraft,
+    selectedConnectorContexts,
+    selectedMcpContexts,
+    selectedPluginContexts,
+    stagedFiles,
+    workingDir,
+    workingDirToken,
+  ]);
   // Live counterpart to the draft-key restore above (see the
   // `HOME_COMPOSER_SEED_EVENT` module note) — picks up a `seedHomeComposerPrompt`
   // call that fires while this HomeView instance is already mounted, which is
@@ -807,7 +889,7 @@ export function HomeView({
       const files = peekHomeComposerAttachments();
       if (files.length === 0) return;
       clearHomeComposerAttachments();
-      setStagedFiles((current) => [...current, ...files]);
+      setStagedFiles((current) => withNewFiles(current, files));
     }
     window.addEventListener(HOME_COMPOSER_ATTACHMENTS_EVENT, onAttachmentsHandedBack);
     return () => window.removeEventListener(HOME_COMPOSER_ATTACHMENTS_EVENT, onAttachmentsHandedBack);
@@ -966,16 +1048,21 @@ export function HomeView({
       if (!supersede && current?.key === issuedCatalogKey) return current.promise;
       const requestGeneration = ++pluginCatalogRequestGenerationRef.current;
       const promise = (force
-        ? listPlugins(pluginCatalogOptions)
-        : listPluginsFresh(pluginCatalogOptions)).then((rows) => {
+        ? listPluginsOrNull(pluginCatalogOptions)
+        : listPluginsFreshOrNull(pluginCatalogOptions)).then((rows) => {
         if (
           cancelled
           || requestGeneration !== pluginCatalogRequestGenerationRef.current
           || desiredPluginCatalogKeyRef.current !== issuedCatalogKey
         ) return;
         setPluginCatalogKey(issuedCatalogKey);
-        setPlugins(rows);
         setPluginsLoading(false);
+        // A failed read keeps the catalog already on screen: replacing it with
+        // an empty list would unbind the user's picks as if every plugin had
+        // been uninstalled.
+        if (rows === null) return;
+        setPlugins(rows);
+        setPluginCatalogVerified(true);
       }).finally(() => {
         if (pluginCatalogReloadInFlightRef.current?.promise === promise) {
           pluginCatalogReloadInFlightRef.current = null;
@@ -1047,6 +1134,19 @@ export function HomeView({
       if (cancelled) return;
       setMcpServers(result?.servers ?? []);
       setMcpLoading(false);
+      if (!result) return;
+      // Mentions restored from an earlier visit name servers from that visit:
+      // bind them to the current config, and drop any removed meanwhile. The
+      // label stays the one the prompt's `@` token was written with, so a
+      // server renamed meanwhile is still matched at submit.
+      const serverById = new Map(result.servers.map((server) => [server.id, server]));
+      setSelectedMcpContexts((current) => {
+        if (current.length === 0) return current;
+        return current.flatMap((selection) => {
+          const server = serverById.get(selection.server.id);
+          return server ? [{ ...selection, server: { ...server, label: selection.server.label } }] : [];
+        });
+      });
     });
     return () => {
       cancelled = true;
@@ -1298,7 +1398,9 @@ export function HomeView({
     // catalogue record; missing ids lose only their selection. Keep the prompt,
     // attachments and the rest of the draft intact. Do not move this policy to
     // project creation or turn it into remote authorization — local catalogue
-    // refresh/SSE is the product boundary for plugin availability.
+    // refresh/SSE is the product boundary for plugin availability. Only a
+    // verified catalog can say an id is gone; until then a missing id keeps
+    // its selection (see `pluginCatalogVerified`).
     if (reconciledPluginCatalogKeyRef.current !== pluginCatalogKey) {
       // An apply started against the prior Workspace must not commit after the
       // catalogue partition changes. Ordinary same-Workspace SSE refreshes do
@@ -1309,7 +1411,7 @@ export function HomeView({
     setActive((current) => {
       if (!current) return current;
       const nextRecord = pluginById.get(current.record.id);
-      if (!nextRecord) return null;
+      if (!nextRecord) return pluginCatalogVerified ? null : current;
       if (nextRecord === current.record) return current;
       return {
         ...current,
@@ -1324,6 +1426,7 @@ export function HomeView({
       const next = current.flatMap((selection) => {
         const nextRecord = pluginById.get(selection.record.id);
         if (!nextRecord) {
+          if (!pluginCatalogVerified) return [selection];
           changed = true;
           return [];
         }
@@ -1335,9 +1438,9 @@ export function HomeView({
     });
     setDetailsRecord((current) => {
       if (!current) return current;
-      return pluginById.get(current.id) ?? null;
+      return pluginById.get(current.id) ?? (pluginCatalogVerified ? null : current);
     });
-  }, [pluginCatalogKey, plugins, pluginsLoading]);
+  }, [pluginCatalogKey, pluginCatalogVerified, plugins, pluginsLoading]);
 
   useEffect(() => {
     if (skillsLoading) return;
@@ -1942,16 +2045,22 @@ export function HomeView({
   useEffect(() => {
     if (!pendingChipRestore || pluginsLoading) return;
     const restore = pendingChipRestore;
-    setPendingChipRestore(null);
-    if (active || pendingPluginUseHandoff) return;
+    if (active || pendingPluginUseHandoff) {
+      setPendingChipRestore(null);
+      return;
+    }
     const record = plugins.find((plugin) => plugin.id === restore.pluginId);
     if (!record) {
-      // The persisted plugin was uninstalled/removed since the last visit —
+      // Only a verified catalog proves the persisted plugin was uninstalled
+      // since the last visit; until then keep waiting. Once it is proven gone,
       // drop the stale pointer rather than surfacing an error for a background
       // restore the user never explicitly asked to retry.
+      if (!pluginCatalogVerified) return;
+      setPendingChipRestore(null);
       if (ownsComposerDraft) writeHomeComposerChipDraft(null);
       return;
     }
+    setPendingChipRestore(null);
     // The draft reader already folded any retired top-level id onto its parent,
     // so `restore.chipId` names a live task type and the scene is a refinement
     // of it — never a chip of its own to look up instead.
@@ -1960,17 +2069,27 @@ export function HomeView({
       ? prototypeSubChipForSlug(restore.prototypeSubtypeId ?? null)
       : null;
     const restoredAction = restoredChip?.action;
+    const restoredPluginAction =
+      restoredAction?.kind === 'apply-scenario' || restoredAction?.kind === 'apply-figma-migration'
+        ? restoredAction
+        : null;
+    // A media type's own plugin comes back with the media setup a click gives
+    // it; an explicit pick of another plugin keeps the plain binding.
+    const restoredMediaSurface =
+      restoredChip && restoredPluginAction?.pluginId === record.id && !restore.explicitPick
+        ? homeMediaSurfaceForChipId(restoredChip.id)
+        : null;
     requestActivePlugin(record, undefined, {
       chipId: restore.chipId ?? undefined,
       prototypeSubtypeId: restoredSubtype?.slug ?? null,
       projectKind: restore.projectKind ?? undefined,
-      inputs:
-        restoredAction?.kind === 'apply-scenario' || restoredAction?.kind === 'apply-figma-migration'
-          ? restoredAction.inputs
-          : undefined,
+      inputs: restoredPluginAction?.inputs,
       projectMetadata: restoredChip
         ? prototypeSceneProjectMetadata(restoredChip, restoredSubtype)
         : null,
+      ...(restoredMediaSurface
+        ? mediaChipPluginOptions(restoredMediaSurface, restoredPluginAction?.inputs)
+        : {}),
       replaceWithoutConfirmation: true,
       suppressPromptUpdate: true,
       deferApply: true,
@@ -1982,10 +2101,15 @@ export function HomeView({
       examplePick: restore.examplePick === true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingChipRestore, pluginsLoading, plugins, active, pendingPluginUseHandoff]);
+  }, [pendingChipRestore, pluginsLoading, plugins, active, pendingPluginUseHandoff, pluginCatalogVerified]);
 
   // Natural-language entry has no implicit task selection.
   const defaultTypePending = false;
+  // A saved type holds the composer only while its catalog is on the way. If
+  // no catalog could be read, the composer stays usable: the saved type is
+  // kept and comes back on a later read or visit, unless the user picks or
+  // sends something else first.
+  const chipRestorePending = Boolean(pendingChipRestore) && (pluginsLoading || pluginCatalogVerified);
 
   function addPluginContext(record: InstalledPluginRecord, nextPrompt: string | null) {
     setSelectedPluginContexts((prev) => {
@@ -2571,28 +2695,10 @@ export function HomeView({
         }
         const mediaSurface = homeMediaSurfaceForChipId(chip.id);
         if (mediaSurface) {
-          const composer = buildHomeMediaComposer(
-            mediaSurface,
-            promptTemplates,
-            chip.action.inputs,
-            elevenLabsVoices,
-            {
-              elevenLabsVoiceWarning,
-              elevenLabsVoicesLoading,
-              imageModels: composerImageModels,
-            },
-          );
           requestActivePlugin(record, undefined, {
-            projectKind: composer.projectKind,
             chipId: activeChipId,
             prototypeSubtypeId,
-            inputs: composer.inputs,
-            inputFields: composer.fields,
-            queryTemplate: composer.queryTemplate,
-            mediaSurface,
-            projectMetadata: metadataForHomeMediaComposer(mediaSurface, composer.inputs, promptTemplates),
-            editableInputNames: composer.editableFieldNames,
-            preserveInputFields: true,
+            ...mediaChipPluginOptions(mediaSurface, chip.action.inputs),
             // Media chips are a mode switch, just like Prototype and
             // Slide deck: they no longer surface inline model/ratio/duration
             // settings (the agent asks for those during the run), and they
@@ -2668,6 +2774,36 @@ export function HomeView({
         return;
       }
     }
+  }
+
+  // What a media type binds besides its plugin: the media composer's project
+  // kind, fields, query template and metadata. Shared by a click and a
+  // restore, so a restored media type matches a fresh pick.
+  function mediaChipPluginOptions(
+    mediaSurface: HomeComposerMediaSurface,
+    chipInputs: Parameters<typeof buildHomeMediaComposer>[2],
+  ) {
+    const composer = buildHomeMediaComposer(
+      mediaSurface,
+      promptTemplates,
+      chipInputs,
+      elevenLabsVoices,
+      {
+        elevenLabsVoiceWarning,
+        elevenLabsVoicesLoading,
+        imageModels: composerImageModels,
+      },
+    );
+    return {
+      projectKind: composer.projectKind,
+      inputs: composer.inputs,
+      inputFields: composer.fields,
+      queryTemplate: composer.queryTemplate,
+      mediaSurface,
+      projectMetadata: metadataForHomeMediaComposer(mediaSurface, composer.inputs, promptTemplates),
+      editableInputNames: composer.editableFieldNames,
+      preserveInputFields: true,
+    };
   }
 
   // A second-level Prototype scene is the Prototype task type with the scene's
@@ -3041,6 +3177,9 @@ export function HomeView({
         conversationMode: sessionMode,
         ...(examplePromptToSend ? { examplePromptContext: examplePromptToSend } : {}),
       };
+      // The send resolves only once the project exists, by which time the user
+      // may be back on Home with a newer composer (see the clear below).
+      const sentSessionRevision = homeComposerSessionRevision();
       const accepted = onSubmitWithDraftGuard
         ? await onSubmitWithDraftGuard(payload, isSubmitCurrent)
         : await onSubmit(payload);
@@ -3056,7 +3195,11 @@ export function HomeView({
       // The draft has become a real run; drop it synchronously (before the
       // navigation unmounts us) so the sent prompt + pick don't reappear the
       // next time the Home tab mounts.
-      if (ownsComposerDraft) clearHomeComposerDraft();
+      if (ownsComposerDraft) {
+        composerSentRef.current = true;
+        clearHomeComposerDraft();
+        clearSentHomeComposerSession(sentSessionRevision);
+      }
       // Only drop the staged contexts once the run actually started — a
       // rejected creation keeps them so the retry sends the same payload.
       setSelectedPluginContexts([]);
@@ -3207,12 +3350,12 @@ export function HomeView({
         pendingChipId={pendingChipId}
         typeSelectionPending={
           defaultTypePending
-          || Boolean(pendingChipRestore)
+          || chipRestorePending
           || Boolean(pendingPluginUseHandoff)
         }
         submitDisabled={
           defaultTypePending ||
-          Boolean(pendingChipRestore) ||
+          chipRestorePending ||
           Boolean(pendingPluginUseHandoff) ||
           Boolean(pendingApplyId) ||
           Boolean(pendingAuthoringChipId) ||
