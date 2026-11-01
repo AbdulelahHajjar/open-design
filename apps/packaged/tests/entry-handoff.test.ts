@@ -45,11 +45,16 @@ function evaluate(code: string, modules: Record<string, unknown>, globals: Recor
   return module.exports;
 }
 
-type Kind = "visible" | "hidden" | "gone" | "duplicate" | "timeout";
-async function scenario(platform: "darwin" | "win32", channel: "stable" | "prerelease", kind: Kind) {
+type Kind = "visible" | "hidden" | "gone" | "duplicate" | "timeout" | "bootstrap";
+async function scenario(
+  platform: "darwin" | "win32",
+  channel: "stable" | "prerelease",
+  kind: Kind,
+  options: { launcher?: boolean; headless?: boolean } = {},
+) {
   const root = await mkdtemp(join(tmpdir(), "od-entry-handoff-"));
   const trace: string[] = [];
-  let alive = kind !== "gone";
+  let alive = kind !== "gone" && kind !== "bootstrap";
   const armed = Promise.withResolvers<void>();
   const exited = Promise.withResolvers<boolean>();
   const quit = () => {
@@ -78,7 +83,7 @@ async function scenario(platform: "darwin" | "win32", channel: "stable" | "prere
     },
     "@open-design/sidecar": {
       readCurrentSidecarStamp: () => null,
-      isCurrentSidecarLauncher: () => false,
+      isCurrentSidecarLauncher: () => options.launcher === true,
       getSidecarStatus: async (stamp: SidecarStamp) => {
         trace.push(`inspect:${stamp.app}:${alive}`);
         if (!alive || stamp.mode !== "runtime") return { state: "stopped" };
@@ -87,15 +92,22 @@ async function scenario(platform: "darwin" | "win32", channel: "stable" | "prere
       },
       invokeSidecar: async () => { trace.push("show"); return { accepted: true }; },
       stopSidecar: async () => { quit(); return { remainingPids: [] }; },
-      bootstrapSidecarProcess: async () => { trace.push(`bootstrap:${alive}`); return false; },
+      bootstrapSidecarProcess: async () => { trace.push(`bootstrap:${alive}`); return kind === "bootstrap"; },
     },
     "electron": { app: { commandLine: { appendSwitch() {} }, exit: (code: number) => trace.push(`exit:${code}`) } },
     "@open-design/desktop/main": { async recordIncomingUpdateLifecycle() {}, applyOsLocaleSwitch() {}, applyLoopbackConnectionLimitSwitch() {} },
     "./config.js": { readPackagedConfig: async () => ({ namespace, appVersion: version }) },
-    "./headless-runtime.js": { parsePackagedHeadlessRequest: () => ({ headless: false }), runPackagedMcpActionAgainstExistingDaemon: async () => false },
+    "./headless-runtime.js": { parsePackagedHeadlessRequest: () => ({ headless: options.headless === true }), runPackagedMcpActionAgainstExistingDaemon: async () => false },
     "./paths.js": { resolvePackagedNamespacePaths: () => paths },
     "./launch.js": { createPackagedSecondInstanceHandoff: () => ({}) },
     "./payload-desktop-launch.js": { findPackagedDeeplinkArg: () => null },
+    "./macos-launcher-guardian.js": { holdMacLauncherForBootstrappedDesktop: async (stamp: SidecarStamp, guardianOptions: { logsRoot?: string }) => {
+      expect(guardianOptions.logsRoot).toBe(paths.logsRoot);
+      trace.push(`guardian-start:${stamp.app}:${stamp.mode}`);
+      await Promise.resolve();
+      await Promise.resolve();
+      trace.push("guardian-end");
+    } },
     "./launcher-runtime.js": { resolvePackagedLauncherRuntime: async (_config: unknown, _paths: unknown, options: { delegated: unknown }) => {
       expect(alive).toBe(false);
       expect(options.delegated).toEqual({ generation: 8, version });
@@ -103,7 +115,7 @@ async function scenario(platform: "darwin" | "win32", channel: "stable" | "prere
     } },
   };
   modules["./launcher-after-quit.js"] = evaluate(helperCode, modules);
-  const argv = ["electron", "index.js", ...(kind === "duplicate" ? [] : [
+  const argv = ["electron", "index.js", ...(kind === "duplicate" || kind === "bootstrap" ? [] : [
     ...launcherProto.buildLauncherAfterQuitArgs({ targetPid: 4242, timeoutMs: 1000 }),
     ...launcherProto.buildLauncherDelegatedArgs({ generation: 8, version }),
   ])];
@@ -124,6 +136,25 @@ async function scenario(platform: "darwin" | "win32", channel: "stable" | "prere
     await rm(root, { recursive: true, force: true });
   }
 }
+
+it("holds the macOS launcher as the bootstrapped desktop's guardian until it returns", async () => {
+  const { trace } = await scenario("darwin", "stable", "bootstrap");
+  expect(trace).toContain("bootstrap:false");
+  expect(trace).toContain("guardian-start:desktop:runtime");
+  expect(trace.indexOf("guardian-end")).toBeGreaterThan(-1);
+  expect(trace.indexOf("guardian-end")).toBeLessThan(trace.indexOf("exit:0"));
+  expect(trace).not.toContain("select");
+});
+
+it.each([
+  ["outside macOS", "win32", {}],
+  ["for a stamped launcher, whose caller waits for it to exit", "darwin", { launcher: true }],
+  ["for a headless launch", "darwin", { headless: true }],
+] as const)("exits right after bootstrap %s", async (_label, platform, options) => {
+  const { trace } = await scenario(platform, "stable", "bootstrap", options);
+  expect(trace).toContain("exit:0");
+  expect(trace.some(event => event.startsWith("guardian-"))).toBe(false);
+});
 
 describe.each(["darwin", "win32"] as const)("%s packaged update entry", platform => {
   it.each(["stable", "prerelease"] as const)("waits for the %s old desktop before instance discovery and bootstrap", async channel => {
