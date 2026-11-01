@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   ChatMessage,
   CollabCloudComment,
+  ConversationExecutor,
   OdNextDevicePlatformV1,
   PreviewComment,
   PreviewCommentAttachment,
@@ -21,6 +22,7 @@ import type {
 import {
   eventsEndedWithUnfinishedWork,
   isTodoWriteToolName,
+  parseConversationExecutor,
   latestTodoWriteInputFromEvents,
   stripArtifactFocusMarkers,
   stripDoneMarkers,
@@ -206,6 +208,7 @@ function migrate(db: SqliteDb): void {
       title TEXT,
       session_mode TEXT NOT NULL DEFAULT 'design',
       intent_signals_json TEXT,
+      executor_json TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -477,6 +480,9 @@ function migrate(db: SqliteDb): void {
   }
   if (!conversationCols.some((c: DbRow) => c.name === 'intent_signals_json')) {
     db.exec(`ALTER TABLE conversations ADD COLUMN intent_signals_json TEXT`);
+  }
+  if (!conversationCols.some((c: DbRow) => c.name === 'executor_json')) {
+    db.exec(`ALTER TABLE conversations ADD COLUMN executor_json TEXT`);
   }
   const messageCols = db.prepare(`PRAGMA table_info(messages)`).all() as DbRow[];
   if (!messageCols.some((c: DbRow) => c.name === 'agent_id')) {
@@ -2347,6 +2353,7 @@ export function listConversations(db: SqliteDb, projectId: string) {
     .prepare(
       `WITH project_conversations AS (
           SELECT id, project_id AS projectId, title, session_mode AS sessionMode,
+                 executor_json AS executorJson,
                  created_at AS createdAt, updated_at AS updatedAt
            FROM conversations
            WHERE project_id = ?
@@ -2391,7 +2398,8 @@ export function listConversations(db: SqliteDb, projectId: string) {
              AND m.run_status IN ('succeeded', 'failed', 'canceled')
            GROUP BY m.conversation_id
         )
-        SELECT c.id, c.projectId, c.title, c.sessionMode, c.createdAt, c.updatedAt,
+        SELECT c.id, c.projectId, c.title, c.sessionMode, c.executorJson,
+               c.createdAt, c.updatedAt,
                COALESCE(mc.messageCount, 0) AS messageCount,
                lr.latestRunStatus, lr.latestRunStartedAt,
                lr.latestRunEndedAt, lr.latestRunMessageId,
@@ -2476,6 +2484,7 @@ export function getConversation(db: SqliteDb, id: string) {
   const r = db
     .prepare(
       `SELECT id, project_id AS projectId, title, session_mode AS sessionMode,
+              executor_json AS executorJson,
               created_at AS createdAt, updated_at AS updatedAt,
               (SELECT COUNT(*) FROM messages WHERE conversation_id = conversations.id) AS messageCount
          FROM conversations WHERE id = ?`,
@@ -2496,11 +2505,13 @@ function normalizeConversation(r: DbRow) {
     endedAt: r.latestRunEndedAt,
     eventsJson: r.latestRunEventsJson,
   });
+  const executor = storedConversationExecutor(r.executorJson);
   return {
     id: r.id,
     projectId: r.projectId,
     title: r.title ?? null,
     sessionMode: normalizeConversationSessionMode(r.sessionMode),
+    ...(executor ? { executor } : {}),
     messageCount: Number(r.messageCount ?? 0),
     createdAt: Number(r.createdAt),
     updatedAt: Number(r.updatedAt),
@@ -2511,6 +2522,29 @@ function normalizeConversation(r: DbRow) {
 
 export function normalizeConversationSessionMode(value: unknown): ChatSessionMode {
   return value === 'chat' || value === 'plan' ? value : 'design';
+}
+
+/**
+ * Reads `conversations.executor_json`. Anything that is not a valid stored
+ * executor — NULL, corrupt JSON, or a shape a newer or older build wrote —
+ * reads as "no executor", so the host derives one again instead of a bad
+ * row breaking every read of the conversation.
+ */
+function storedConversationExecutor(raw: unknown): ConversationExecutor | null {
+  if (typeof raw !== 'string' || !raw) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const parsed = parseConversationExecutor(value);
+  return parsed.ok ? parsed.executor : null;
+}
+
+function serializeConversationExecutor(value: unknown): string | null {
+  const parsed = parseConversationExecutor(value ?? null);
+  return parsed.ok && parsed.executor ? JSON.stringify(parsed.executor) : null;
 }
 
 function numberProperty(key: string, value: unknown) {
@@ -2622,22 +2656,68 @@ function latestUsageDurationMs(eventsJson: unknown): number | undefined {
   return undefined;
 }
 
+/**
+ * The agent id recorded on a conversation's most recent assistant turn that
+ * has one, or null. Conversations that predate stored executors resolve their
+ * executor from it.
+ */
+export function lastAssistantAgentId(db: SqliteDb, conversationId: string): string | null {
+  const row = db
+    .prepare(
+      `SELECT agent_id AS agentId FROM messages
+        WHERE conversation_id = ? AND role = 'assistant'
+          AND agent_id IS NOT NULL AND agent_id <> ''
+        ORDER BY position DESC
+        LIMIT 1`,
+    )
+    .get(conversationId) as DbRow | undefined;
+  return typeof row?.agentId === 'string' ? row.agentId : null;
+}
+
+/**
+ * Stores `executor` on a conversation that has none yet. A conversation that
+ * already has one (including one stored concurrently by a client) keeps it,
+ * and `updated_at` is left alone so the conversation list does not reorder.
+ */
+export function pinConversationExecutorIfUnset(
+  db: SqliteDb,
+  conversationId: string,
+  executor: ConversationExecutor,
+): void {
+  const serialized = serializeConversationExecutor(executor);
+  if (!serialized) return;
+  db.prepare(
+    `UPDATE conversations SET executor_json = ? WHERE id = ? AND executor_json IS NULL`,
+  ).run(serialized, conversationId);
+}
+
+/**
+ * `c.executor` is optional. An executor that does not parse is stored as
+ * NULL, so callers that accept untrusted input validate it first and reject
+ * it instead.
+ */
 export function insertConversation(db: SqliteDb, c: DbRow) {
   db.prepare(
     `INSERT INTO conversations
-       (id, project_id, title, session_mode, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+       (id, project_id, title, session_mode, executor_json, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     c.id,
     c.projectId,
     c.title ?? null,
     normalizeConversationSessionMode(c.sessionMode),
+    serializeConversationExecutor(c.executor),
     c.createdAt,
     c.updatedAt,
   );
   return getConversation(db, c.id);
 }
 
+/**
+ * Applies a partial patch. `executor` is replaced only when the patch has it
+ * as an own property (`null` clears it); otherwise the stored column is left
+ * untouched, including a value this build cannot parse.
+ */
 export function updateConversation(db: SqliteDb, id: string, patch: DbRow) {
   const existing = getConversation(db, id);
   if (!existing) return null;
@@ -2649,10 +2729,20 @@ export function updateConversation(db: SqliteDb, id: string, patch: DbRow) {
       : existing.sessionMode,
     updatedAt: typeof patch.updatedAt === 'number' ? patch.updatedAt : Date.now(),
   };
+  const replacesExecutor = Object.prototype.hasOwnProperty.call(patch, 'executor');
   db.prepare(
     `UPDATE conversations
-        SET title = ?, session_mode = ?, updated_at = ? WHERE id = ?`,
-  ).run(merged.title ?? null, merged.sessionMode, merged.updatedAt, id);
+        SET title = ?, session_mode = ?, updated_at = ?,
+            executor_json = CASE WHEN ? = 1 THEN ? ELSE executor_json END
+      WHERE id = ?`,
+  ).run(
+    merged.title ?? null,
+    merged.sessionMode,
+    merged.updatedAt,
+    replacesExecutor ? 1 : 0,
+    replacesExecutor ? serializeConversationExecutor(patch.executor) : null,
+    id,
+  );
   return getConversation(db, id);
 }
 

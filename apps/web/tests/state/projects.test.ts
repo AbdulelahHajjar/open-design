@@ -278,6 +278,21 @@ describe('createConversation', () => {
     expect(body.forkFallbackMessage).toBeUndefined();
   });
 
+  it('sends the executor the new conversation starts with', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => Response.json({
+      conversation: { id: 'fork-2', projectId: 'project-1', title: 'Fork', createdAt: 2, updatedAt: 2 },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createConversation('project-1', 'Fork', {
+      seedFromConversationId: 'source-1',
+      executor: { mode: 'daemon', agentId: 'codex', agentModel: { model: 'gpt-5.5' } },
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as Record<string, unknown>;
+    expect(body.executor).toEqual({ mode: 'daemon', agentId: 'codex', agentModel: { model: 'gpt-5.5' } });
+  });
+
   it('retries an unpersisted fork point with one compact fallback message', async () => {
     const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>;

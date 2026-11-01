@@ -23,6 +23,7 @@ import type {
   ApplyResult,
   ChatSessionMode,
   CollabProjectBootstrapResponse,
+  ConversationExecutor,
   CreateConversationRequest,
   CreateDesignSystemProjectFromProjectResponse,
   CreateProjectExampleReference,
@@ -1262,6 +1263,7 @@ type CreateConversationOptions = {
   seedFromConversationId?: string | null;
   forkAfterMessageId?: string | null;
   sessionMode?: ChatSessionMode;
+  executor?: ConversationExecutor | null;
   // The one in-memory fork point to retry with when it never reached the DB.
   forkFallbackMessage?: ChatMessage;
   forkFallbackPredecessorMessageId?: string | null;
@@ -1323,6 +1325,9 @@ export async function createConversation(
     const body: CreateConversationRequest = { title };
     if (opts?.sessionMode) {
       body.sessionMode = opts.sessionMode;
+    }
+    if (opts?.executor !== undefined) {
+      body.executor = opts.executor;
     }
     if (opts?.seedFromConversationId) {
       body.seedFromConversationId = opts.seedFromConversationId;

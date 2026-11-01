@@ -13,7 +13,7 @@ import { workspaceBillingSummaryForContext } from '../../src/collab/useWorkspace
 import { AvatarMenu } from '../../src/components/AvatarMenu';
 import { providerModelsCacheKey } from '../../src/components/providerModelsCache';
 import type { ProjectWorkspaceScopeState } from '../../src/collab/useProjectWorkspaceScope';
-import type { AgentInfo, AppConfig, ExecMode } from '../../src/types';
+import type { AgentInfo, ApiProtocol, AppConfig, ExecMode } from '../../src/types';
 
 const { openExternalUrlMock } = vi.hoisted(() => ({
   openExternalUrlMock: vi.fn<(url: string) => Promise<boolean>>(),
@@ -225,6 +225,8 @@ function renderMenu({
   onAgentModelChange = vi.fn<AgentModelChangeHandler>(),
   onOpenSettings = vi.fn<OpenSettingsHandler>(),
   onRefreshAgents = vi.fn<VoidHandler>(),
+  onApiProtocolChange = vi.fn<(protocol: ApiProtocol) => void>(),
+  controlsDisabled,
   projectWorkspaceScope,
 }: {
   config?: AppConfig;
@@ -235,6 +237,8 @@ function renderMenu({
   onAgentModelChange?: ReturnType<typeof vi.fn<AgentModelChangeHandler>>;
   onOpenSettings?: ReturnType<typeof vi.fn<OpenSettingsHandler>>;
   onRefreshAgents?: ReturnType<typeof vi.fn<VoidHandler>>;
+  onApiProtocolChange?: ReturnType<typeof vi.fn<(protocol: ApiProtocol) => void>>;
+  controlsDisabled?: boolean;
   projectWorkspaceScope?: ProjectWorkspaceScopeState;
 } = {}) {
   render(
@@ -247,6 +251,8 @@ function renderMenu({
       onAgentModelChange={onAgentModelChange}
       onOpenSettings={onOpenSettings}
       onRefreshAgents={onRefreshAgents}
+      onApiProtocolChange={onApiProtocolChange}
+      controlsDisabled={controlsDisabled}
       projectWorkspaceScope={projectWorkspaceScope}
     />,
   );
@@ -256,6 +262,7 @@ function renderMenu({
     onAgentModelChange,
     onOpenSettings,
     onRefreshAgents,
+    onApiProtocolChange,
   };
 }
 
@@ -273,34 +280,112 @@ describe('AvatarMenu', () => {
     MockAvatarEventSource.instances = [];
   });
 
-  // The composer popover is a one-decision surface: pick the model for the
-  // active agent. Execution mode, which CLI agent runs, PATH rescan, reasoning
-  // effort and the BYOK model are configuration, and live in
-  // Settings → Execution. Keeping them out is what makes the popover compact.
-  it('keeps execution configuration out of the composer popover', () => {
+  // The composer popover offers every per-conversation execution choice —
+  // mode, agent, BYOK provider, model, reasoning, service tier. Setup that is
+  // not a per-conversation choice (PATH rescan, keys, CLI env) stays in
+  // Settings → Execution, reached through the link at the bottom.
+  it('offers the execution choices and links out to Settings for setup', () => {
     const onOpenSettings = vi.fn<OpenSettingsHandler>();
     const onRefreshAgents = vi.fn<VoidHandler>();
-    renderMenu({ daemonLive: false, onOpenSettings, onRefreshAgents });
+    renderMenu({ onOpenSettings, onRefreshAgents });
 
-    openMenu();
+    const menu = openMenu();
 
-    // The execution console itself is gone from this popover per #5517: no mode
-    // switch, no CLI list, no PATH rescan.
-    expect(screen.queryByRole('button', { name: /avatar.useLocal/i })).toBeNull();
-    expect(screen.queryByRole('button', { name: /avatar.useApi/i })).toBeNull();
+    expect(within(menu).getByTestId('avatar-mode-daemon').getAttribute('aria-selected')).toBe('true');
+    expect(within(menu).getByTestId('avatar-mode-api').getAttribute('aria-selected')).toBe('false');
+    expect(within(menu).getByTestId('avatar-agent-option-codex').getAttribute('aria-checked')).toBe('true');
+    expect(within(menu).getByTestId('avatar-agent-option-claude').getAttribute('aria-checked')).toBe('false');
     expect(screen.queryByRole('button', { name: 'avatar.rescan' })).toBeNull();
     expect(onRefreshAgents).not.toHaveBeenCalled();
 
-    // …but the link OUT to it must stay. #5517 has no such entry, and it also
-    // never moved CLI switching out of this popover — we did, so without this
-    // the place switching moved TO is unreachable from where it used to be.
     const openSettings = screen.getByTestId('avatar-open-execution-settings');
-    expect(openSettings).toBeTruthy();
     fireEvent.click(openSettings);
     expect(onOpenSettings).toHaveBeenCalledWith('execution');
   });
 
-  // Product decision (2026-07-24): the popover is a model picker only. The
+  it('switches agent and keeps the popover open for the model pick', () => {
+    const { onAgentChange } = renderMenu();
+    const menu = openMenu();
+
+    fireEvent.click(within(menu).getByTestId('avatar-agent-option-claude'));
+
+    expect(onAgentChange).toHaveBeenCalledWith('claude');
+    expect(screen.getByRole('dialog', { name: 'avatar.title' })).toBeTruthy();
+  });
+
+  it('keeps an undetected current agent listed and marked offline', () => {
+    renderMenu({ agents: [{ ...codexAgent, available: false }, claudeAgent] });
+    const menu = openMenu();
+
+    const current = within(menu).getByTestId('avatar-agent-option-codex');
+    expect(current.getAttribute('aria-checked')).toBe('true');
+    expect(current.textContent).toContain('avatar.metaOffline');
+  });
+
+  it('switches execution mode, and cannot switch to Local CLI while the daemon is offline', () => {
+    const { onModeChange } = renderMenu();
+    fireEvent.click(within(openMenu()).getByTestId('avatar-mode-api'));
+    expect(onModeChange).toHaveBeenCalledWith('api');
+    cleanup();
+
+    const offline = renderMenu({ config: { ...baseConfig, mode: 'api' }, daemonLive: false });
+    const menu = openMenu();
+    expect(within(menu).getByTestId('avatar-mode-daemon')).toHaveProperty('disabled', true);
+    fireEvent.click(within(menu).getByTestId('avatar-mode-daemon'));
+    expect(offline.onModeChange).not.toHaveBeenCalled();
+  });
+
+  it('offers only BYOK providers whose credentials are in Settings', () => {
+    const { onApiProtocolChange } = renderMenu({
+      config: {
+        ...baseConfig,
+        mode: 'api',
+        apiKey: 'sk-ant-test',
+        apiProtocolConfigs: {
+          openai: {
+            apiKey: 'sk-openai-test',
+            baseUrl: 'https://api.openai.com/v1',
+            model: 'gpt-5.4',
+            apiVersion: '',
+            apiProviderBaseUrl: 'https://api.openai.com/v1',
+          },
+        },
+      },
+    });
+    const menu = openMenu();
+
+    const providers = [...menu.querySelectorAll('[data-testid^="avatar-provider-option-"]')]
+      .map((row) => row.getAttribute('data-testid'));
+    expect(providers).toEqual(['avatar-provider-option-anthropic', 'avatar-provider-option-openai']);
+    expect(within(menu).queryByText('inlineSwitcher.missingApiKey')).toBeNull();
+
+    fireEvent.click(within(menu).getByTestId('avatar-provider-option-openai'));
+    expect(onApiProtocolChange).toHaveBeenCalledWith('openai');
+  });
+
+  it('keeps the current BYOK provider listed and warns when its key is missing', () => {
+    renderMenu({ config: { ...baseConfig, mode: 'api', apiKey: '' } });
+    const menu = openMenu();
+
+    expect(within(menu).getByTestId('avatar-provider-option-anthropic').getAttribute('aria-checked'))
+      .toBe('true');
+    expect(within(menu).getByText('inlineSwitcher.missingApiKey')).toBeTruthy();
+  });
+
+  it('shows the execution choices without letting them change when controls are disabled', () => {
+    const { onModeChange, onAgentChange } = renderMenu({ controlsDisabled: true });
+    const menu = openMenu();
+
+    for (const testId of ['avatar-mode-daemon', 'avatar-mode-api', 'avatar-agent-option-claude']) {
+      const control = within(menu).getByTestId(testId);
+      expect(control).toHaveProperty('disabled', true);
+      fireEvent.click(control);
+    }
+    expect(onModeChange).not.toHaveBeenCalled();
+    expect(onAgentChange).not.toHaveBeenCalled();
+  });
+
+  // Product decision (2026-07-24): the popover holds execution choices only. The
   // OpenDesign account row — plan badge, balance, upgrade/console links —
   // was removed entirely (account/billing surfaces live in the nav rail and
   // Settings), so none of it may render even with a fully signed-in AMR
@@ -343,8 +428,7 @@ describe('AvatarMenu', () => {
       await Promise.resolve();
     });
 
-    expect(screen.queryByTestId('avatar-agent-option-amr')).toBeNull();
-    expect(menu.querySelectorAll('[data-testid^="avatar-agent-option-"]')).toHaveLength(0);
+    // OpenDesign may be offered as an agent to run on; its account row may not.
     expect(within(menu).queryByText('Plus')).toBeNull();
     expect(menu.textContent).not.toContain('$247.51');
     expect(screen.queryByRole('link', { name: 'settings.amrUpgrade' })).toBeNull();

@@ -374,3 +374,56 @@ describe('G9 side-chat retries preserve the persisted failed turn', () => {
     expect(hook.result.current.streaming).toBe(false);
   });
 });
+
+describe('useConversationChat conversation executor', () => {
+  beforeEach(() => {
+    mockedSaveMessage.mockResolvedValue(null);
+    mockedStreamViaDaemon.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  async function sendFromSideChat(
+    executor: Parameters<typeof useConversationChat>[2]['executor'],
+    history: ChatMessage[],
+  ): Promise<Record<string, unknown>> {
+    mockedListMessages.mockResolvedValue(history);
+    const hook = renderHook(() =>
+      useConversationChat('project-1', 'side-conversation', {
+        config,
+        executor,
+        agentsById: new Map(),
+        locale: 'en',
+        sessionMode: 'chat',
+      }),
+    );
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    await act(async () => {
+      await hook.result.current.onSend('side question', [], []);
+    });
+    await waitFor(() => expect(mockedStreamViaDaemon).toHaveBeenCalledTimes(1));
+    return mockedStreamViaDaemon.mock.calls[0]![0] as unknown as Record<string, unknown>;
+  }
+
+  it('sends on the side conversation\'s stored executor, not the app-wide default', async () => {
+    const request = await sendFromSideChat(
+      { mode: 'daemon', agentId: 'claude', agentModel: { model: 'sonnet' } },
+      [],
+    );
+    expect(request).toMatchObject({ agentId: 'claude', model: 'sonnet' });
+  });
+
+  it('keeps an older side conversation on the agent its history shows', async () => {
+    const request = await sendFromSideChat(undefined, [
+      { id: 'side-user', role: 'user', content: 'earlier', createdAt: 1 },
+      {
+        id: 'side-assistant', role: 'assistant', content: 'done', createdAt: 2,
+        agentId: 'claude', runStatus: 'succeeded', endedAt: 3,
+      },
+    ]);
+    expect(request).toMatchObject({ agentId: 'claude' });
+  });
+});

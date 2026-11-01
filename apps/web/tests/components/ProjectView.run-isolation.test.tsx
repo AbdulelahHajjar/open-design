@@ -927,6 +927,7 @@ describe('ProjectView conversation run isolation', () => {
       return new Promise<ChatMessage[]>(() => {});
     });
     createConversation.mockResolvedValue(createdConversation);
+    patchConversation.mockReset();
     fetchPreviewComments.mockResolvedValue([]);
     loadTabs.mockResolvedValue({ tabs: [], active: null });
     fetchProjectFiles.mockResolvedValue([]);
@@ -4035,11 +4036,13 @@ describe('ProjectView conversation run isolation', () => {
   it('requests persisted Cloud without arming a replay from the legacy workspace callback seam', async () => {
     conversationAMessages = [];
     fetchChatRunStatus.mockResolvedValue(null);
+    acceptConversationPatches();
+    // Deprecated App setters for the app-wide default; the switch must not use them.
     const onModeChange = vi.fn();
     const onAgentChange = vi.fn();
+    const onSwitchToCloud = vi.fn().mockResolvedValue(undefined);
     const onOpenAmrSettings = vi.fn();
     const onArmAmrAuthRetryContinuation = vi.fn();
-    const onSwitchToCloud = vi.fn().mockResolvedValue(undefined);
     streamViaDaemon.mockImplementation(
       async (options: {
         onRunCreated?: (runId: string) => void;
@@ -4093,8 +4096,14 @@ describe('ProjectView conversation run isolation', () => {
     // This old FileWorkspace stub exposes the callback as a test seam, not
     // a current product button. Real main/side card entry is verified by the
     // OPEND-3205 actual-host suite; no Settings route or new run is permitted.
+    const writesBeforeSwitch = executorWrites('conv-a').length;
     await act(async () => { fireEvent.click(screen.getByTestId('workspace-authorize')); });
-    expect(onSwitchToCloud).toHaveBeenCalledOnce();
+    expect(await screen.findByText('chat.amrCard.switchedResend')).toBeTruthy();
+    // Cloud is persisted as this conversation's executor, not as the app-wide default.
+    expect(executorWrites('conv-a').slice(writesBeforeSwitch)).toEqual([
+      { executor: { mode: 'daemon', agentId: 'amr' } },
+    ]);
+    expect(onSwitchToCloud).not.toHaveBeenCalled();
     expect(onModeChange).not.toHaveBeenCalled();
     expect(onAgentChange).not.toHaveBeenCalled();
     expect(onOpenAmrSettings).not.toHaveBeenCalled();
@@ -4107,8 +4116,8 @@ describe('ProjectView conversation run isolation', () => {
     conversationAMessages = [];
     fetchChatRunStatus.mockResolvedValue(null);
     fetchVelaLoginStatus.mockResolvedValue({ loggedIn: true });
+    acceptConversationPatches();
     const onArmAmrAuthRetryContinuation = vi.fn();
-    const onSwitchToCloud = vi.fn().mockResolvedValue(undefined);
     streamViaDaemon.mockImplementation(
       async (options: {
         onRunCreated?: (runId: string) => void;
@@ -4146,7 +4155,6 @@ describe('ProjectView conversation run isolation', () => {
       {
         onOpenAmrSettings: vi.fn(),
         onArmAmrAuthRetryContinuation,
-        onSwitchToCloud,
       },
     );
 
@@ -4158,9 +4166,13 @@ describe('ProjectView conversation run isolation', () => {
     await waitFor(() => expect(streamViaDaemon).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId('workspace-authorize')).toBeTruthy());
 
+    const writesBeforeSwitch = executorWrites('conv-a').length;
     await act(async () => { fireEvent.click(screen.getByTestId('workspace-authorize')); });
+    expect(await screen.findByText('chat.amrCard.switchedResend')).toBeTruthy();
 
-    expect(onSwitchToCloud).toHaveBeenCalledOnce();
+    expect(executorWrites('conv-a').slice(writesBeforeSwitch)).toEqual([
+      { executor: { mode: 'daemon', agentId: 'amr' } },
+    ]);
     expect(onArmAmrAuthRetryContinuation).not.toHaveBeenCalled();
     expect(streamViaDaemon).toHaveBeenCalledTimes(1);
   });
@@ -4314,6 +4326,23 @@ describe('ProjectView conversation run isolation', () => {
     expect(screen.queryByTestId('workspace-launch-terminal')).toBeNull();
   });
 });
+
+// The daemon answers a conversation PATCH with the stored row after the patch.
+function acceptConversationPatches(stored: readonly Conversation[] = conversations) {
+  patchConversation.mockImplementation(
+    async (_projectId: string, id: string, patch: Partial<Conversation>) => {
+      const current = stored.find((candidate) => candidate.id === id);
+      return current ? { ...current, ...patch } : null;
+    },
+  );
+}
+
+/** Every executor write ProjectView sent for one conversation, in order. */
+function executorWrites(conversationId: string) {
+  return patchConversation.mock.calls
+    .filter(([, id, patch]) => id === conversationId && 'executor' in (patch as object))
+    .map(([, , patch]) => patch);
+}
 
 function renderProjectView(
   renderConfig = config,

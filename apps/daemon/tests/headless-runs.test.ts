@@ -1003,6 +1003,191 @@ describe('POST /api/runs headless fallbacks', () => {
       await rm(emptyAgentHome, { recursive: true, force: true });
     }
   });
+
+  it('runs a conversation on its stored Local CLI executor when the request names no agent', async () => {
+    started = await startTestServer();
+    const binDir = await mkdtemp(path.join(os.tmpdir(), 'od-headless-run-bin-'));
+    const emptyAgentHome = await mkdtemp(path.join(os.tmpdir(), 'od-headless-run-home-'));
+    const priorConfig = await readAppConfigFromServer(started.url);
+    try {
+      const opencodeBin = await writeFakeOpencode(binDir);
+      process.env.PATH = '';
+      process.env.OD_AGENT_HOME = emptyAgentHome;
+
+      const configResponse = await fetch(`${started.url}/api/app-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: 'opencode',
+          agentCliEnv: {
+            claude: { CLAUDE_BIN: path.join(binDir, 'missing-claude') },
+            opencode: { OPENCODE_BIN: opencodeBin },
+          },
+        }),
+      });
+      expect(configResponse.status).toBe(200);
+
+      const { projectId } = await createProject(started.url, 'Headless pinned executor project');
+      const conversationResponse = await fetch(
+        `${started.url}/api/projects/${encodeURIComponent(projectId)}/conversations`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: 'Pinned to Claude',
+            executor: { mode: 'daemon', agentId: 'claude' },
+          }),
+        },
+      );
+      expect(conversationResponse.status).toBe(200);
+      const conversationBody = await conversationResponse.json() as {
+        conversation: { id: string };
+      };
+
+      const runResponse = await fetch(`${started.url}/api/runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          conversationId: conversationBody.conversation.id,
+          message: 'Headless prompt on a pinned conversation',
+        }),
+      });
+      expect(runResponse.status).toBe(202);
+      const runBody = await runResponse.json() as { runId: string };
+      const statusResponse = await fetch(
+        `${started.url}/api/runs/${encodeURIComponent(runBody.runId)}`,
+      );
+      expect(statusResponse.status).toBe(200);
+      const statusBody = await statusResponse.json() as { agentId: string | null };
+      expect(statusBody.agentId).toBe('claude');
+    } finally {
+      await restoreAppConfig(started.url, priorConfig);
+      await rm(binDir, { recursive: true, force: true });
+      await rm(emptyAgentHome, { recursive: true, force: true });
+    }
+  });
+
+  async function createConversationWith(
+    baseUrl: string,
+    projectId: string,
+    body: Record<string, unknown>,
+  ): Promise<string> {
+    const response = await fetch(
+      `${baseUrl}/api/projects/${encodeURIComponent(projectId)}/conversations`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    );
+    expect(response.status).toBe(200);
+    return ((await response.json()) as { conversation: { id: string } }).conversation.id;
+  }
+
+  async function storedExecutor(baseUrl: string, projectId: string, conversationId: string) {
+    const response = await fetch(`${baseUrl}/api/projects/${encodeURIComponent(projectId)}/conversations`);
+    const body = await response.json() as { conversations: Array<{ id: string; executor?: unknown }> };
+    return body.conversations.find((conversation) => conversation.id === conversationId)?.executor;
+  }
+
+  async function withFakeOpencode(
+    run: (url: string) => Promise<void>,
+  ): Promise<void> {
+    started = await startTestServer();
+    const binDir = await mkdtemp(path.join(os.tmpdir(), 'od-headless-run-bin-'));
+    const emptyAgentHome = await mkdtemp(path.join(os.tmpdir(), 'od-headless-run-home-'));
+    const priorConfig = await readAppConfigFromServer(started.url);
+    try {
+      const opencodeBin = await writeFakeOpencode(binDir);
+      process.env.PATH = '';
+      process.env.OD_AGENT_HOME = emptyAgentHome;
+      const configResponse = await fetch(`${started.url}/api/app-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId: 'opencode',
+          agentCliEnv: {
+            claude: { CLAUDE_BIN: path.join(binDir, 'missing-claude') },
+            opencode: { OPENCODE_BIN: opencodeBin },
+          },
+        }),
+      });
+      expect(configResponse.status).toBe(200);
+      await run(started.url);
+    } finally {
+      await restoreAppConfig(started.url, priorConfig);
+      await rm(binDir, { recursive: true, force: true });
+      await rm(emptyAgentHome, { recursive: true, force: true });
+    }
+  }
+
+  it('stores the executor a conversation\'s first headless run runs on', async () => {
+    await withFakeOpencode(async (url) => {
+      const { projectId } = await createProject(url, 'Headless first-run executor project');
+      const conversationId = await createConversationWith(url, projectId, { title: 'Unpinned' });
+      expect(await storedExecutor(url, projectId, conversationId)).toBeUndefined();
+
+      const runResponse = await fetch(`${url}/api/runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, conversationId, message: 'First headless prompt' }),
+      });
+      expect(runResponse.status).toBe(202);
+
+      expect(await storedExecutor(url, projectId, conversationId))
+        .toEqual({ mode: 'daemon', agentId: 'opencode' });
+    });
+  });
+
+  it('runs an older conversation on the agent its last reply recorded', async () => {
+    await withFakeOpencode(async (url) => {
+      const { projectId } = await createProject(url, 'Headless recorded-agent project');
+      const conversationId = await createConversationWith(url, projectId, { title: 'Before executors' });
+      const saved = await fetch(
+        `${url}/api/projects/${encodeURIComponent(projectId)}/conversations/${encodeURIComponent(conversationId)}/messages/recorded-claude-turn`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: 'recorded-claude-turn',
+            role: 'assistant',
+            content: 'Earlier answer from Claude',
+            agentId: 'claude',
+            runStatus: 'succeeded',
+            createdAt: 1,
+          }),
+        },
+      );
+      expect(saved.status).toBe(200);
+
+      const runResponse = await fetch(`${url}/api/runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, conversationId, message: 'Follow-up without an agent' }),
+      });
+      expect(runResponse.status).toBe(202);
+      const { runId } = await runResponse.json() as { runId: string };
+      const status = await fetch(`${url}/api/runs/${encodeURIComponent(runId)}`);
+      expect((await status.json() as { agentId: string | null }).agentId).toBe('claude');
+    });
+  });
+
+  it('refuses to run a BYOK conversation on another executor when no provider is sent', async () => {
+    await withFakeOpencode(async (url) => {
+      const { projectId } = await createProject(url, 'Headless BYOK executor project');
+      const conversationId = await createConversationWith(url, projectId, {
+        title: 'On OpenAI',
+        executor: { mode: 'api', apiProtocol: 'openai', model: 'gpt-5.5' },
+      });
+
+      const runResponse = await fetch(`${url}/api/runs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, conversationId, message: 'No provider sent' }),
+      });
+      expect(runResponse.status).toBe(400);
+      const body = await runResponse.json() as { error: { code: string; message: string } };
+      expect(body.error.code).toBe('BAD_REQUEST');
+      expect(body.error.message).toContain('BYOK provider openai');
+    });
+  });
 });
 
 async function startTestServer(): Promise<StartedServer> {

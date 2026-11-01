@@ -909,6 +909,154 @@ describe('GET /api/projects/:id resolvedDir', () => {
     expect(invalidBody.error?.message).toMatch(/sessionMode/i);
   });
 
+  it('persists a conversation executor through create, patch, clear, and fork', async () => {
+    const projectId = `proj-executor-${Date.now()}`;
+    const createProjectResp = await fetch(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: projectId, name: 'Executor fixture' }),
+    });
+    expect(createProjectResp.status).toBe(200);
+    const conversationsUrl = `${baseUrl}/api/projects/${projectId}/conversations`;
+    type ConversationDto = { id: string; title: string | null; sessionMode: string; executor?: unknown };
+    const listConversations = async () => {
+      const resp = await fetch(conversationsUrl);
+      expect(resp.status).toBe(200);
+      return ((await resp.json()) as { conversations: ConversationDto[] }).conversations;
+    };
+    const patchConversation = (id: string, body: unknown) =>
+      fetch(`${conversationsUrl}/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+    const codexExecutor = {
+      mode: 'daemon',
+      agentId: 'codex',
+      agentModel: { model: 'gpt-5.5', reasoning: 'high' },
+    };
+    const createResp = await fetch(conversationsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Pinned thread',
+        executor: { ...codexExecutor, apiKey: 'must-not-be-stored' },
+      }),
+    });
+    expect(createResp.status).toBe(200);
+    const created = (await createResp.json()) as { conversation: ConversationDto };
+    expect(created.conversation.executor).toEqual(codexExecutor);
+    const conversationId = created.conversation.id;
+    expect((await listConversations()).find((c) => c.id === conversationId)?.executor)
+      .toEqual(codexExecutor);
+
+    const byokExecutor = { mode: 'api', apiProtocol: 'openai', model: 'gpt-4o' };
+    const byokResp = await patchConversation(conversationId, { executor: byokExecutor });
+    expect(byokResp.status).toBe(200);
+    expect(((await byokResp.json()) as { conversation: ConversationDto }).conversation.executor)
+      .toEqual(byokExecutor);
+
+    const titleResp = await patchConversation(conversationId, { title: 'Renamed thread' });
+    expect(titleResp.status).toBe(200);
+    const titled = ((await titleResp.json()) as { conversation: ConversationDto }).conversation;
+    expect(titled.title).toBe('Renamed thread');
+    expect(titled.executor).toEqual(byokExecutor);
+
+    for (const executor of [{ mode: 'daemon', agentId: '' }, { mode: 'api', apiProtocol: 'nope' }, 'codex']) {
+      const invalidPatch = await patchConversation(conversationId, { executor });
+      expect(invalidPatch.status).toBe(400);
+      const invalidBody = (await invalidPatch.json()) as { error?: { code?: string; message?: string } };
+      expect(invalidBody.error?.code).toBe('BAD_REQUEST');
+      expect(invalidBody.error?.message).toMatch(/executor/);
+    }
+    expect((await listConversations()).find((c) => c.id === conversationId)?.executor)
+      .toEqual(byokExecutor);
+
+    const invalidCreate = await fetch(conversationsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ executor: { mode: 'remote' } }),
+    });
+    expect(invalidCreate.status).toBe(400);
+    const invalidCreateBody = (await invalidCreate.json()) as { error?: { code?: string; message?: string } };
+    expect(invalidCreateBody.error?.code).toBe('BAD_REQUEST');
+    expect(invalidCreateBody.error?.message).toMatch(/executor/);
+
+    const forkResp = await fetch(conversationsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seedFromConversationId: conversationId }),
+    });
+    expect(forkResp.status).toBe(200);
+    expect(((await forkResp.json()) as { conversation: ConversationDto }).conversation.executor)
+      .toEqual(byokExecutor);
+
+    const overrideResp = await fetch(conversationsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seedFromConversationId: conversationId,
+        executor: { mode: 'daemon', agentId: 'claude' },
+      }),
+    });
+    expect(overrideResp.status).toBe(200);
+    expect(((await overrideResp.json()) as { conversation: ConversationDto }).conversation.executor)
+      .toEqual({ mode: 'daemon', agentId: 'claude' });
+
+    const clearedForkResp = await fetch(conversationsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seedFromConversationId: conversationId, executor: null }),
+    });
+    expect(clearedForkResp.status).toBe(200);
+    const clearedFork = ((await clearedForkResp.json()) as { conversation: ConversationDto }).conversation;
+    expect('executor' in clearedFork).toBe(false);
+
+    const clearResp = await patchConversation(conversationId, { executor: null });
+    expect(clearResp.status).toBe(200);
+    const cleared = ((await clearResp.json()) as { conversation: ConversationDto }).conversation;
+    expect('executor' in cleared).toBe(false);
+    expect('executor' in ((await listConversations()).find((c) => c.id === conversationId) ?? {}))
+      .toBe(false);
+  });
+
+  it('forks an older conversation onto the executor its whole history shows', async () => {
+    const projectId = `proj-executor-legacy-${Date.now()}`;
+    const createProjectResp = await fetch(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: projectId, name: 'Legacy executor fixture' }),
+    });
+    expect(createProjectResp.status).toBe(200);
+    const conversationsUrl = `${baseUrl}/api/projects/${projectId}/conversations`;
+    const sourceResp = await fetch(conversationsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Before executors' }),
+    });
+    const sourceId = ((await sourceResp.json()) as { conversation: { id: string } }).conversation.id;
+    const saveTurn = (id: string, agentId: string, createdAt: number) =>
+      fetch(`${conversationsUrl}/${sourceId}/messages/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, role: 'assistant', content: id, agentId, runStatus: 'succeeded', createdAt }),
+      });
+    expect((await saveTurn('claude-turn', 'claude', 1)).status).toBe(200);
+    expect((await saveTurn('codex-turn', 'codex', 2)).status).toBe(200);
+
+    // Cut at the earlier Claude turn: the fork still continues on Codex,
+    // the executor the source runs on now.
+    const forkResp = await fetch(conversationsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seedFromConversationId: sourceId, forkAfterMessageId: 'claude-turn' }),
+    });
+    expect(forkResp.status).toBe(200);
+    expect(((await forkResp.json()) as { conversation: { executor?: unknown } }).conversation.executor)
+      .toEqual({ mode: 'daemon', agentId: 'codex' });
+  });
+
   it('persists run session mode and workspace context on the pinned assistant message', async () => {
     const projectId = `proj-run-context-${Date.now()}`;
     const createResp = await fetch(`${baseUrl}/api/projects`, {

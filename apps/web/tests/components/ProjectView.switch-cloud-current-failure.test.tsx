@@ -5,7 +5,7 @@
 
 import { act, cleanup, fireEvent, render, waitFor, within } from '@testing-library/react';
 import { buildWorkspacePermissions, type ChatRunStatusResponse, type WorkspaceCollabContext } from '@open-design/contracts';
-import { forwardRef, useImperativeHandle, useState, type ComponentProps, type ReactNode } from 'react';
+import { forwardRef, useImperativeHandle, type ComponentProps, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProjectView } from '../../src/components/ProjectView';
@@ -19,6 +19,7 @@ import {
   createConversation,
   listConversations,
   listMessages,
+  patchConversation,
   saveMessage,
 } from '../../src/state/projects';
 import type { AgentInfo, AppConfig, ChatCommentAttachment, ChatMessage, Conversation, Project } from '../../src/types';
@@ -174,6 +175,11 @@ const conversation: Conversation = {
   id: 'transcript-conversation', projectId: project.id,
   title: null, createdAt: 1, updatedAt: 1,
 };
+// A conversation moved to Cloud after a local failure: its history still ends
+// in the local failed turn, but its next send runs on Cloud.
+const cloudConversation: Conversation = {
+  ...conversation, executor: { mode: 'daemon', agentId: 'amr' },
+};
 const history: ChatMessage = {
   id: 'persisted-message', role: 'user', content: 'Existing private conversation', createdAt: 1,
 };
@@ -192,6 +198,14 @@ function readableScope(context = MEMBER): ProjectWorkspaceScopeState {
   };
 }
 
+// The daemon answers a conversation PATCH with the stored row after the patch.
+function acceptConversationPatches(stored: readonly Conversation[]) {
+  vi.mocked(patchConversation).mockImplementation(async (_projectId, id, patch) => {
+    const current = stored.find((candidate) => candidate.id === id);
+    return current ? { ...current, ...patch } : null;
+  });
+}
+
 function projectView(extra: Partial<ComponentProps<typeof ProjectView>> = {}) {
   return (
     <ProjectView
@@ -201,7 +215,6 @@ function projectView(extra: Partial<ComponentProps<typeof ProjectView>> = {}) {
         models: [{ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', default: true }],
       }] as unknown as AgentInfo[]}
       skills={[]} designTemplates={[]} designSystems={[]} daemonLive
-      onModeChange={vi.fn()} onAgentChange={vi.fn()} onAgentModelChange={vi.fn()}
       onRefreshAgents={vi.fn()} onOpenSettings={vi.fn()} onBack={vi.fn()}
       onClearPendingPrompt={vi.fn()} onTouchProject={vi.fn()}
       onProjectChange={vi.fn()} onProjectsRefresh={vi.fn()}
@@ -232,6 +245,8 @@ describe('OPEND-3205 new send owns the current failure presentation', () => {
     vi.mocked(listConversations).mockReset().mockResolvedValue([conversation]);
     vi.mocked(createConversation).mockReset().mockResolvedValue(conversation);
     vi.mocked(listMessages).mockReset().mockResolvedValue([history]);
+    vi.mocked(patchConversation).mockReset();
+    acceptConversationPatches([conversation]);
     vi.mocked(streamViaDaemon).mockReset().mockResolvedValue(undefined);
     vi.mocked(checkAmrBalanceGate).mockReset().mockResolvedValue({ kind: 'allow' });
     vi.mocked(fetchVelaLoginStatus).mockReset().mockResolvedValue(null);
@@ -260,8 +275,10 @@ describe('OPEND-3205 new send owns the current failure presentation', () => {
     };
     const originalFailure = structuredClone(oldFailure);
     workspace.sideConversationId = side ? target.id : null;
-    vi.mocked(listConversations).mockResolvedValue(side ? [conversation, target] : [conversation]);
+    const stored = side ? [conversation, target] : [conversation];
+    vi.mocked(listConversations).mockResolvedValue(stored);
     vi.mocked(listMessages).mockImplementation(async (_project, id) => id === target.id ? [history, oldFailure] : [history]);
+    acceptConversationPatches(stored);
     if (balanceBlocked) {
       vi.mocked(checkAmrBalanceGate).mockResolvedValue({
         kind: 'hard', reason: 'insufficient',
@@ -277,14 +294,9 @@ describe('OPEND-3205 new send owns the current failure presentation', () => {
         options.handlers.onError(Object.assign(new Error('New Cloud authorization failed'), { code: 'AMR_AUTH_REQUIRED' }));
       });
     }
-    function Owner() {
-      const [selectedConfig, setSelectedConfig] = useState<AppConfig>({ ...config, agentId: 'codex' });
-      return <I18nProvider initial="zh-CN">{projectView({
-        config: selectedConfig, routeConversationId: conversation.id,
-        onSwitchToCloud: async () => setSelectedConfig((current) => ({ ...current, mode: 'daemon', agentId: 'amr' })),
-      })}</I18nProvider>;
-    }
-    const view = render(<Owner />);
+    const view = render(<I18nProvider initial="zh-CN">{projectView({
+      config: { ...config, agentId: 'codex' }, routeConversationId: conversation.id,
+    })}</I18nProvider>);
     const host = side ? await view.findByTestId('side-chat-recovery-host') : view.container;
     await within(host).findByText(oldFailure.content);
     const oldCard = within(host).getByTestId('chat-run-error-card');
@@ -324,10 +336,11 @@ describe('OPEND-3205 new send owns the current failure presentation', () => {
         failureDetail: 'process_crashed', detail: 'Old diagnostic' }],
     };
     const original = structuredClone(oldFailure);
+    vi.mocked(listConversations).mockResolvedValue([cloudConversation]);
     vi.mocked(listMessages).mockResolvedValue([history, oldFailure]);
     vi.mocked(checkAmrBalanceGate).mockResolvedValue(insufficientWallet());
     const host = () => <I18nProvider initial="zh-CN">{projectView({
-      config, routeConversationId: conversation.id, onSwitchToCloud: vi.fn().mockResolvedValue(undefined),
+      config, routeConversationId: conversation.id,
     })}</I18nProvider>;
     const first = render(host());
     await first.findByText(oldFailure.content);
@@ -401,10 +414,11 @@ describe('OPEND-3205 new send owns the current failure presentation', () => {
         },
       } satisfies ChatRunStatusResponse;
     });
+    vi.mocked(listConversations).mockResolvedValue([cloudConversation]);
     vi.mocked(listMessages).mockResolvedValue([history, head, tail]);
     vi.mocked(checkAmrBalanceGate).mockResolvedValue(insufficientWallet());
     const host = () => <I18nProvider initial="zh-CN">{projectView({
-      config, routeConversationId: conversation.id, onSwitchToCloud: vi.fn().mockResolvedValue(undefined),
+      config, routeConversationId: conversation.id,
     })}</I18nProvider>;
     const view = render(host());
     await view.findByText(/Planning history stays.*Physical failure history stays/s);
@@ -436,7 +450,7 @@ describe('OPEND-3205 new send owns the current failure presentation', () => {
   });
 
   it('does not consume another conversation failure when an old preflight finishes after navigation', async () => {
-    const secondConversation: Conversation = { ...conversation, id: 'second-conversation' };
+    const secondConversation: Conversation = { ...cloudConversation, id: 'second-conversation' };
     const failure = (id: string): ChatMessage => ({
       id, role: 'assistant', content: `Failure history ${id}`, createdAt: 2,
       agentId: 'codex', runId: `run-${id}`, runStatus: 'failed',
@@ -445,13 +459,13 @@ describe('OPEND-3205 new send owns the current failure presentation', () => {
     });
     const firstFailure = failure('failed-A');
     const secondFailure = failure('failed-B');
-    vi.mocked(listConversations).mockResolvedValue([conversation, secondConversation]);
+    vi.mocked(listConversations).mockResolvedValue([cloudConversation, secondConversation]);
     vi.mocked(listMessages).mockImplementation(async (_project, id) => [history, id === conversation.id ? firstFailure : secondFailure]);
     let release!: (gate: ReturnType<typeof insufficientWallet>) => void;
     const pending = new Promise<ReturnType<typeof insufficientWallet>>((resolve) => { release = resolve; });
     vi.mocked(checkAmrBalanceGate).mockReturnValue(pending);
     const host = (id: string) => <I18nProvider initial="zh-CN">{projectView({
-      config, routeConversationId: id, onSwitchToCloud: vi.fn().mockResolvedValue(undefined),
+      config, routeConversationId: id,
     })}</I18nProvider>;
     const view = render(host(conversation.id));
     await view.findByText(firstFailure.content);
@@ -485,7 +499,7 @@ describe('OPEND-3205 new send owns the current failure presentation', () => {
     vi.mocked(listMessages).mockImplementation(async (_project, id) => id === sideConversation.id ? [history, sideFailure] : [history]);
     vi.mocked(checkAmrBalanceGate).mockResolvedValue(insufficientWallet());
     const view = render(<I18nProvider initial="zh-CN">{projectView({
-      config, routeConversationId: conversation.id, onSwitchToCloud: vi.fn().mockResolvedValue(undefined),
+      config, routeConversationId: conversation.id,
     })}</I18nProvider>);
     const sideHost = await view.findByTestId('side-chat-recovery-host');
     await within(sideHost).findByText(sideFailure.content);

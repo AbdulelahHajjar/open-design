@@ -1,5 +1,7 @@
 import type { RecoveryActionBlockReason } from '../../runtime/chat/recovery-gating';
+import { useMemo } from 'react';
 import { useT } from '../../i18n';
+import { conversationExecutionConfig } from '../../runtime/chat/conversation-executor';
 import { Icon } from '../Icon';
 import { ChatPane } from '../ChatPane';
 import type {
@@ -131,11 +133,11 @@ export function SideChatTab({
   onTouchProject,
 }: Props) {
   const t = useT();
-  const sessionMode =
-    conversations.find((conversation) => conversation.id === conversationId)?.sessionMode
-    ?? 'design';
+  const conversation = conversations.find((candidate) => candidate.id === conversationId);
+  const sessionMode = conversation?.sessionMode ?? 'design';
   const chat = useConversationChat(projectId, conversationId, {
     config,
+    executor: conversation?.executor,
     agentsById,
     locale,
     sessionMode,
@@ -146,6 +148,12 @@ export function SideChatTab({
     activeConversationChat?.conversationId === conversationId
       ? activeConversationChat
       : null;
+  // What this side conversation runs on, for the pane's own display.
+  const sideMessages = controlledChat?.messages ?? chat.messages;
+  const conversationConfig = useMemo(
+    () => conversationExecutionConfig(config, conversation?.executor, sideMessages),
+    [config, conversation?.executor, sideMessages],
+  );
   const recoveryBlock = controlledChat?.recoveryActionsBlockedReason
     ?? recoveryActionsBlockedReason
     ?? ((controlledChat?.loading ?? chat.loading)
@@ -205,8 +213,8 @@ export function SideChatTab({
           onSelectConversation={onSelectConversation}
           onDeleteConversation={onDeleteConversation}
           onNewConversation={onNewConversation}
-          researchAvailable={config.mode === 'daemon'}
-          config={config}
+          researchAvailable={conversationConfig.mode === 'daemon'}
+          config={conversationConfig}
         />
       </div>
     </div>

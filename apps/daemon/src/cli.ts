@@ -18,6 +18,7 @@ import { splitResearchSubcommand } from './research/cli-args.js';
 import { resolveDaemonUrl } from './daemon-url.js';
 import { byokProviderFromCliOptions } from './runtimes/byok-cli.js';
 import { BYOK_OPENCODE_AGENT_ID } from './runtimes/byok-opencode.js';
+import { conversationExecutorFromCliFlags, conversationExecutorLabel } from './conversation-executor.js';
 import { redactSecrets } from './connectionTest.js';
 import { SidecarFactory } from '@open-design/sidecar';
 import { APP_KEYS, SIDECAR_MESSAGES } from '@open-design/sidecar-proto';
@@ -270,6 +271,13 @@ const PROJECT_RESOURCE_STRING_FLAGS = new Set([
   'workspace-member',
 ]);
 const PROJECT_BOOLEAN_FLAGS = new Set(['help', 'h', 'json', 'follow', 'thumbnail']);
+// `od conversation new|update` and `od chat new` pin a conversation's
+// executor. `agent`, `model`, and `service-tier` are already project flags.
+const CONVERSATION_EXECUTOR_STRING_FLAGS = new Set([
+  ...PROJECT_RESOURCE_STRING_FLAGS,
+  'reasoning', 'byok-protocol',
+]);
+const CONVERSATION_EXECUTOR_BOOLEAN_FLAGS = new Set([...PROJECT_BOOLEAN_FLAGS, 'clear-executor']);
 const RUN_START_STRING_FLAGS = new Set([
   ...PROJECT_RESOURCE_STRING_FLAGS,
   'byok-protocol', 'byok-base-url', 'byok-api-version', 'byok-key-env',
@@ -7416,6 +7424,21 @@ function normalizeChatSessionModeFlag(value) {
   process.exit(2);
 }
 
+// The executor named by the executor options, `null` for --clear-executor,
+// or `undefined` when none was given. Exits 2 on a conflicting combination.
+function conversationExecutorFlag(flags) {
+  const result = conversationExecutorFromCliFlags(flags);
+  if (!result.ok) {
+    console.error(result.message);
+    process.exit(2);
+  }
+  return result.executor;
+}
+
+function conversationExecutorSuffix(conversation) {
+  return conversation?.executor ? ` executor=${conversationExecutorLabel(conversation.executor)}` : '';
+}
+
 function safeReadJsonFile(p) {
   try {
     if (p === '-') return JSON.parse(readFileSync(0, 'utf8'));
@@ -8603,6 +8626,8 @@ async function runRun(args) {
                [--byok-protocol <protocol>] [--byok-base-url <url>]
                [--byok-api-version <version>] [--byok-key-env <env>] [--byok-keyless]
                [--workspace <id> --workspace-member <id>] [--follow] [--json]
+               With --conversation and no --agent, the run uses the
+               conversation's stored Local CLI executor (agent and model).
   od run redesign [--path <folder>] [--message "<text>" | --prompt-file <path|->]
                [--agent claude] [--model <id>] [--service-tier <id>] [--follow] [--json]
   od run watch  <runId>                     ND-JSON event stream on stdout.
@@ -9773,13 +9798,30 @@ async function runConversation(args) {
   if (args.length === 0 || args[0] === 'help' || args.includes('--help') || args.includes('-h')) {
     console.log(`Usage:
   od conversation new  <projectId> [--title "<title>"] [--seed-from <cid>] [--fork-after <mid>] [--mode design|chat|plan]
+                       [executor options]
                                            Create a conversation in a project.
                                            --seed-from copies another
-                                           conversation's messages in (Side Chat).
+                                           conversation's messages in (Side Chat)
+                                           and, unless an executor option is
+                                           given, its executor.
                                            --fork-after stops the copy at one
                                            source message.
+  od conversation update <projectId> <conversationId> [--title "<title>"] [--mode design|chat|plan]
+                       [executor options]
+                                           Rename a conversation, change its
+                                           mode, or change its executor.
   od conversation list <projectId>           List conversations in a project.
   od conversation info <conversationId>      Print one conversation.
+
+Executor options (which runtime answers the conversation's turns):
+  --agent <id>               Pin a Local CLI agent (codex, claude, ...).
+  --model <id>               Model for the pinned agent or BYOK provider.
+  --reasoning <id>           Reasoning effort for the pinned agent.
+  --service-tier <id>        Service tier for the pinned agent.
+  --byok-protocol <protocol> Pin a BYOK provider: anthropic|openai|azure|google|
+                             ollama|senseaudio|aihubmix. Credentials are never
+                             stored; the client supplies them at send time.
+  --clear-executor           Remove the stored executor.
 
 Common options:
   --daemon-url <url>         OpenDesign daemon HTTP base.
@@ -9790,17 +9832,20 @@ Common options:
   }
   const sub = args[0];
   const rest = args.slice(1);
+  const pinsExecutor = sub === 'new' || sub === 'update';
   const conversationStringFlags =
-    sub === 'new' || sub === 'list'
-      ? PROJECT_RESOURCE_STRING_FLAGS
-      : PROJECT_STRING_FLAGS;
+    pinsExecutor
+      ? CONVERSATION_EXECUTOR_STRING_FLAGS
+      : sub === 'list'
+        ? PROJECT_RESOURCE_STRING_FLAGS
+        : PROJECT_STRING_FLAGS;
   const flags = parseFlags(rest, {
     string: conversationStringFlags,
-    boolean: PROJECT_BOOLEAN_FLAGS,
+    boolean: pinsExecutor ? CONVERSATION_EXECUTOR_BOOLEAN_FLAGS : PROJECT_BOOLEAN_FLAGS,
   });
   const base = (await projectDaemonUrl(flags)).replace(/\/$/, '');
   const workspaceHeaders =
-    sub === 'new' || sub === 'list'
+    sub === 'new' || sub === 'list' || sub === 'update'
       ? workspaceHeadersFromExplicitFlags(flags) ?? {}
       : {};
   switch (sub) {
@@ -9814,6 +9859,8 @@ Common options:
       if (typeof flags.title === 'string') body.title = flags.title;
       const sessionMode = normalizeChatSessionModeFlag(flags.mode);
       if (sessionMode) body.sessionMode = sessionMode;
+      const executor = conversationExecutorFlag(flags);
+      if (executor !== undefined) body.executor = executor;
       if (typeof flags['seed-from'] === 'string' && flags['seed-from']) {
         body.seedFromConversationId = flags['seed-from'];
       }
@@ -9833,7 +9880,40 @@ Common options:
       const data = await resp.json();
       if (flags.json) return process.stdout.write(JSON.stringify(data, null, 2) + '\n');
       const conv = data.conversation;
-      console.log(`[conversation] created ${conv?.id ?? '-'} (mode ${conv?.sessionMode ?? sessionMode ?? 'design'})`);
+      console.log(`[conversation] created ${conv?.id ?? '-'} (mode ${conv?.sessionMode ?? sessionMode ?? 'design'})${conversationExecutorSuffix(conv)}`);
+      return;
+    }
+    case 'update': {
+      const [id, conversationId] = positionalArgs(rest, conversationStringFlags);
+      const usage = 'Usage: od conversation update <projectId> <conversationId> [--title "<title>"] [--mode design|chat|plan] [executor options]';
+      if (!id || !conversationId) {
+        console.error(usage);
+        process.exit(2);
+      }
+      const body = {};
+      if (typeof flags.title === 'string') body.title = flags.title.trim() || null;
+      const sessionMode = normalizeChatSessionModeFlag(flags.mode);
+      if (sessionMode) body.sessionMode = sessionMode;
+      const executor = conversationExecutorFlag(flags);
+      if (executor !== undefined) body.executor = executor;
+      if (Object.keys(body).length === 0) {
+        console.error('nothing to update: pass --title, --mode, or an executor option');
+        console.error(usage);
+        process.exit(2);
+      }
+      const resp = await fetch(
+        `${base}/api/projects/${encodeURIComponent(id)}/conversations/${encodeURIComponent(conversationId)}`,
+        {
+          method:  'PATCH',
+          headers: { 'content-type': 'application/json', ...workspaceHeaders },
+          body:    JSON.stringify(body),
+        },
+      );
+      if (!resp.ok) return structuredHttpFailure(resp, 'project-not-found');
+      const data = await resp.json();
+      if (flags.json) return process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+      const conv = data.conversation;
+      console.log(`[conversation] updated ${conv?.id ?? conversationId} (mode ${conv?.sessionMode ?? 'design'})${conversationExecutorSuffix(conv)}`);
       return;
     }
     case 'list': {
@@ -9883,11 +9963,16 @@ async function runChat(args) {
   if (args.length === 0 || args[0] === 'help' || args.includes('--help') || args.includes('-h')) {
     console.log(`Usage:
   od chat new --project <id> [--seed-from <cid>] [--fork-after <mid>] [--title "<title>"] [--mode design|chat|plan] [--json]
+              [--agent <id> [--model <id>] [--reasoning <id>] [--service-tier <id>]
+               | --byok-protocol <protocol> [--model <id>] | --clear-executor]
                                            Create a Side Chat — a new conversation
                                            that copies in another conversation's
                                            context (--seed-from). Use
                                            --fork-after to stop at one source
-                                           message.
+                                           message. The Side Chat keeps the
+                                           source's executor unless an executor
+                                           option is given (see
+                                           \`od conversation help\`).
 
 Common options:
   --daemon-url <url>         OpenDesign daemon HTTP base.
@@ -9899,8 +9984,8 @@ Common options:
   const sub = args[0];
   const rest = args.slice(1);
   const flags = parseFlags(rest, {
-    string: PROJECT_RESOURCE_STRING_FLAGS,
-    boolean: PROJECT_BOOLEAN_FLAGS,
+    string: CONVERSATION_EXECUTOR_STRING_FLAGS,
+    boolean: CONVERSATION_EXECUTOR_BOOLEAN_FLAGS,
   });
   const base = (await projectDaemonUrl(flags)).replace(/\/$/, '');
   const workspaceHeaders = workspaceHeadersFromExplicitFlags(flags) ?? {};
@@ -9910,7 +9995,7 @@ Common options:
       // or a bare positional id for convenience.
       const id = typeof flags.project === 'string' && flags.project
         ? flags.project
-        : positionalArgs(rest, PROJECT_RESOURCE_STRING_FLAGS)[0];
+        : positionalArgs(rest, CONVERSATION_EXECUTOR_STRING_FLAGS)[0];
       if (!id) {
         console.error('Usage: od chat new --project <id> [--seed-from <cid>] [--fork-after <mid>] [--title "<title>"]');
         process.exit(2);
@@ -9919,6 +10004,8 @@ Common options:
       if (typeof flags.title === 'string') body.title = flags.title;
       const sessionMode = normalizeChatSessionModeFlag(flags.mode);
       if (sessionMode) body.sessionMode = sessionMode;
+      const executor = conversationExecutorFlag(flags);
+      if (executor !== undefined) body.executor = executor;
       if (typeof flags['seed-from'] === 'string' && flags['seed-from']) {
         body.seedFromConversationId = flags['seed-from'];
       }
@@ -9944,7 +10031,7 @@ Common options:
       const forked = body.forkAfterMessageId
         ? ` through ${body.forkAfterMessageId}`
         : '';
-      console.log(`[chat] created ${conv?.id ?? '-'}${conv?.title ? ` "${conv.title}"` : ''}${seeded}${forked} (mode ${conv?.sessionMode ?? sessionMode ?? 'design'})`);
+      console.log(`[chat] created ${conv?.id ?? '-'}${conv?.title ? ` "${conv.title}"` : ''}${seeded}${forked} (mode ${conv?.sessionMode ?? sessionMode ?? 'design'})${conversationExecutorSuffix(conv)}`);
       return;
     }
     default:

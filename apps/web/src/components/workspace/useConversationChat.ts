@@ -9,6 +9,7 @@ import {
 import { agentModelDisplayName } from '../../utils/agentLabels';
 import { randomUUID } from '../../utils/uuid';
 import { effectiveAgentModelChoice } from '../agentModelSelection';
+import { conversationExecutionConfig } from '../../runtime/chat/conversation-executor';
 import {
   createBufferedTextUpdates,
   finalizeActiveAssistantMessagesOnStop,
@@ -23,7 +24,11 @@ import type {
   ChatCommentAttachment,
   ChatMessage,
 } from '../../types';
-import type { ChatSessionMode, WorkspaceCollabContext } from '@open-design/contracts';
+import type {
+  ChatSessionMode,
+  ConversationExecutor,
+  WorkspaceCollabContext,
+} from '@open-design/contracts';
 
 // ---------------------------------------------------------------------------
 // useConversationChat — drives a secondary ChatPane bound to a single
@@ -51,8 +56,13 @@ function isActiveRunStatus(status: ChatMessage['runStatus']): boolean {
 }
 
 export interface ConversationChatContext {
-  /** Live app config — selects daemon-vs-api mode and the active agent. */
+  /** Live app-wide config — the default executor and every other setting. */
   config: AppConfig;
+  /**
+   * The conversation's stored executor. Sends use it (or the agent the
+   * conversation's history shows) over the app-wide default in `config`.
+   */
+  executor?: ConversationExecutor | null;
   /** Agent metadata map (id → AgentInfo), used to resolve model labels. */
   agentsById: Map<string, AgentInfo>;
   /** UI locale forwarded to the daemon so prompts compose in-language. */
@@ -188,12 +198,14 @@ export function useConversationChat(
       retryOfAssistantId?: string,
     ) => {
       const {
-        config: cfg,
+        config: globalConfig,
+        executor,
         agentsById: agents,
         locale: loc,
         sessionMode,
         workspaceContext,
       } = ctxRef.current;
+      const cfg = conversationExecutionConfig(globalConfig, executor, messagesRef.current);
       if (messagesReadyScopeKeyRef.current !== messageScopeKey) return;
       // This controller is installed synchronously before dispatch, so two
       // activations in one React turn cannot admit two replacement requests.

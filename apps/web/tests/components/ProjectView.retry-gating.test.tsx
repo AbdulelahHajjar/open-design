@@ -413,7 +413,11 @@ const userMessage: ChatMessage = {
   createdAt: 1,
 };
 
-/** 队尾那条失败助手消息 —— 报错卡和〔重试〕挂在它身上。 */
+/**
+ * 队尾那条失败助手消息 —— 报错卡和〔重试〕挂在它身上。
+ * It records no agent, so the conversation runs on whichever config a test
+ * renders with (local CLI or Cloud) rather than on the agent of this turn.
+ */
 const failedAssistant: ChatMessage = {
   id: 'assistant-failed',
   role: 'assistant',
@@ -421,7 +425,6 @@ const failedAssistant: ChatMessage = {
   createdAt: 2,
   runId: 'run-1',
   runStatus: 'failed',
-  agentId: 'agent-1',
   events: [
     { kind: 'status', label: 'error', detail: 'upstream said no', code: 'AGENT_EXECUTION_FAILED' },
   ],

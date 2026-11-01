@@ -1,4 +1,5 @@
 import type { ChatMessage, ChatRunStatus, ChatSessionMode } from './chat.js';
+import type { ConversationExecutor } from './conversation-executor.js';
 import type { OrchestratorWorkspace } from './workspaces.js';
 import type {
   ProjectContextConnectorRef,
@@ -414,6 +415,12 @@ export interface Conversation {
   projectId: string;
   title: string | null;
   sessionMode?: ChatSessionMode;
+  /**
+   * The executor this conversation runs on. Absent when none has been stored
+   * yet; the host then derives one (from the conversation's last assistant
+   * turn, or its app-wide default) and stores it on the next send.
+   */
+  executor?: ConversationExecutor | null;
   messageCount?: number;
   createdAt: number;
   updatedAt: number;
@@ -778,6 +785,11 @@ export interface CreateConversationRequest {
   title?: string | null;
   sessionMode?: ChatSessionMode;
   /**
+   * The executor the new conversation starts with. When omitted on a fork
+   * (`seedFromConversationId`), the source conversation's executor is copied.
+   */
+  executor?: ConversationExecutor | null;
+  /**
    * Seed the new conversation with another conversation's context by copying
    * its messages. The source must belong to the same project; a missing or
    * foreign id is ignored and an empty conversation is created. Powers the
@@ -826,6 +838,8 @@ export interface CreateConversationRequest {
 export interface UpdateConversationRequest {
   title?: string | null;
   sessionMode?: ChatSessionMode;
+  /** Replaces the conversation's executor; `null` clears it. */
+  executor?: ConversationExecutor | null;
 }
 
 export interface MessagesResponse {

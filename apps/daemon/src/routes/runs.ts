@@ -48,15 +48,22 @@ import {
 } from '../codex-rollout-usage.js';
 import type { ConnectorService } from '../connectors/service.js';
 import {
+  conversationExecutorForRun,
+  conversationExecutorRunDefaults,
+  resolveStoredOrRecordedExecutor,
+} from '../conversation-executor.js';
+import {
   conversationTurnIndexForRun,
   getFirstProjectConversation,
   getConversation,
   getProject,
+  lastAssistantAgentId,
   listConversationsAwaitingInput,
   listProjectsAwaitingInput,
   normalizeConversationSessionMode,
   acceptProjectUserSubmission,
   getProjectUserSubmission,
+  pinConversationExecutorIfUnset,
   updateProject,
   upsertMessage,
 } from '../db.js';
@@ -1481,6 +1488,40 @@ export function registerRunRoutes(app: Express, ctx: RegisterRunRoutesDeps) {
     if (submission?.source === 'queue' && !previousSubmission) {
       return sendApiError(res, 409, 'BAD_REQUEST', 'queued submission must be registered before execution');
     }
+    // A caller that names only the conversation (the `od` CLI, an external
+    // agent) runs on that conversation's executor: the stored one, else the
+    // one its last assistant turn ran on. Filled into the request itself so
+    // the agent fallback below and the run meta both see it.
+    const runConversation = submissionConversationId
+      ? getConversation(db, submissionConversationId)
+      : null;
+    const runConversationExecutor = runConversation
+      ? resolveStoredOrRecordedExecutor(
+          runConversation.executor,
+          lastAssistantAgentId(db, runConversation.id),
+        )
+      : null;
+    if (
+      runConversationExecutor?.mode === 'api'
+      && !(typeof requestBody.agentId === 'string' && requestBody.agentId)
+      && requestBody.byokProvider === undefined
+    ) {
+      // The daemon holds no BYOK credentials, so it cannot run this
+      // conversation's executor by itself, and silently running it on
+      // another executor would mix executors in one conversation.
+      return sendApiError(
+        res,
+        400,
+        'BAD_REQUEST',
+        `conversation ${runConversation?.id} runs on the BYOK provider `
+          + `${runConversationExecutor.apiProtocol}; send its provider (byokProvider, or `
+          + `od run start --byok-protocol ${runConversationExecutor.apiProtocol} …) or name an agent`,
+      );
+    }
+    Object.assign(
+      requestBody,
+      conversationExecutorRunDefaults(runConversationExecutor, requestBody),
+    );
 
     // Keep enrichment's specific recovery response ahead of generic task handoff.
     // Same-request retries still reach the idempotent claim below.
@@ -2801,6 +2842,18 @@ export function registerRunRoutes(app: Express, ctx: RegisterRunRoutesDeps) {
       );
     }
     const resumed = preparedRun.resumed;
+    // A conversation's first accepted run stores the executor it runs on, so
+    // later runs stay on it when the app-wide default changes.
+    if (typeof run.conversationId === 'string' && run.conversationId) {
+      const ranOn = conversationExecutorForRun({
+        agentId: meta.agentId,
+        model: requestBody.model,
+        reasoning: requestBody.reasoning,
+        serviceTier: requestBody.serviceTier,
+        byokProvider: requestBody.byokProvider,
+      });
+      if (ranOn) pinConversationExecutorIfUnset(db, run.conversationId, ranOn);
+    }
     const declaredClient = String(req.get('x-od-client') ?? '').toLowerCase();
     if (requestAnalyticsContext?.clientType === 'external_mcp') {
       run.clientType = 'external_mcp';

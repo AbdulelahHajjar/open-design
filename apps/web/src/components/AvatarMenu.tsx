@@ -21,13 +21,13 @@ import {
   providerModelsCacheKey,
 } from './providerModelsCache';
 import { KNOWN_PROVIDERS } from '../state/config';
-import { SUGGESTED_MODELS_BY_PROTOCOL } from '../state/apiProtocols';
+import { API_PROTOCOL_TABS, SUGGESTED_MODELS_BY_PROTOCOL } from '../state/apiProtocols';
 import { fetchProviderModels } from '../providers/provider-models';
 import {
   canReachWorkspaceBillingEntrance,
   workspaceBillingAuthorityContext,
 } from '@open-design/contracts';
-import type { AgentInfo, AppConfig, ExecMode, ProviderModelOption } from '../types';
+import type { AgentInfo, ApiProtocol, AppConfig, ExecMode, ProviderModelOption } from '../types';
 import {
   canUpgradeVelaPlan,
   fetchVelaLoginStatus,
@@ -36,6 +36,10 @@ import {
 import { openExternalUrl } from '../providers/registry';
 import { amrPlansUrlForWorkspace } from '../runtime/amr-guidance';
 import { isMacPlatform } from '../utils/platform';
+import { isVisibleLocalCliAgent } from '../utils/visibleAgents';
+import { orderAgentsWithOpenDesignFirst } from './agentOrdering';
+import { byokProtocolConfigured } from '../runtime/chat/conversation-executor';
+import styles from './AvatarMenu.module.css';
 import {
   useWorkspaceBillingResponse,
   useWorkspaceContext,
@@ -58,6 +62,9 @@ interface Props {
     choice: { model?: string; reasoning?: string; serviceTier?: string },
   ) => void;
   onApiModelChange?: (model: string) => void;
+  onApiProtocolChange?: (protocol: ApiProtocol) => void;
+  /** Shows the execution choices without letting them be changed. */
+  controlsDisabled?: boolean;
   providerModelsCache?: Record<string, ProviderModelOption[]>;
   onOpenSettings: (section?: 'execution') => void;
   onRefreshAgents: () => void;
@@ -85,18 +92,24 @@ interface Props {
 }
 
 /**
- * Compact runtime control. Click opens a dropdown with the OpenDesign account
- * and the model picker for the active agent. Execution wiring that is not a
- * per-message choice (execution mode, which CLI agent, PATH rescan, BYOK
- * provider setup) lives in Settings → Execution; this popover keeps the
- * active agent's model and reasoning choices close to the composer.
+ * The composer's execution menu. It offers every choice Settings → Execution
+ * offers for running a turn — execution mode, CLI agent, BYOK provider, model,
+ * reasoning, service tier — for whatever `config` describes; in a project that
+ * is the open conversation's executor, and the host decides where a change is
+ * stored. Setup that is not a per-conversation choice (API keys, CLI env, PATH
+ * rescan) stays in Settings, reached through the link at the bottom; only BYOK
+ * providers that already have their credentials there are offered here.
  */
 export function AvatarMenu({
   config,
   agents,
+  daemonLive,
+  onModeChange,
   onAgentChange,
   onAgentModelChange,
   onApiModelChange,
+  onApiProtocolChange,
+  controlsDisabled = false,
   providerModelsCache,
   onOpenSettings,
   onBack,
@@ -265,6 +278,30 @@ export function AvatarMenu({
     if (currentAgent?.id !== 'amr') return models;
     return orderModelOptionsByAvailability(models);
   }, [currentAgent]);
+
+  // Agents a turn can be sent to, OpenDesign first. The current agent stays
+  // listed even when it is no longer detected, so the menu always shows what
+  // the conversation is set to.
+  const selectableAgents = useMemo(() => {
+    const installed = orderAgentsWithOpenDesignFirst(
+      agents.filter((agent) => agent.available && isVisibleLocalCliAgent(agent)),
+    );
+    return currentAgent && !installed.some((agent) => agent.id === currentAgent.id)
+      ? [...installed, currentAgent]
+      : installed;
+  }, [agents, currentAgent]);
+  // BYOK providers whose credentials are already in Settings, plus the current
+  // one so a provider whose key was removed still reads as selected.
+  const selectableProviders = useMemo(
+    () => (config.mode === 'api'
+      ? API_PROTOCOL_TABS.filter(
+          (tab) => tab.id === (config.apiProtocol ?? 'anthropic') || byokProtocolConfigured(config, tab.id),
+        )
+      : []),
+    [config],
+  );
+  const currentProviderConfigured =
+    config.mode !== 'api' || byokProtocolConfigured(config, config.apiProtocol ?? 'anthropic');
 
   const amrAgent = useMemo(
     () => agents.find((a) => a.id === 'amr' && a.available) ?? null,
@@ -589,6 +626,131 @@ export function AvatarMenu({
           aria-label={t('avatar.title')}
           style={popoverStyle}
         >
+          <div className="avatar-model-section">
+            <div className="avatar-select-row">
+              <span className="avatar-select-label">{t('inlineSwitcher.modeLabel')}</span>
+              <div className={styles.modeSwitch} role="tablist" aria-label={t('inlineSwitcher.modeLabel')}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={config.mode === 'daemon'}
+                  className={styles.modeOption}
+                  data-testid="avatar-mode-daemon"
+                  disabled={controlsDisabled || (!daemonLive && config.mode !== 'daemon')}
+                  title={daemonLive ? t('inlineSwitcher.useCli') : t('inlineSwitcher.daemonOffline')}
+                  onClick={() => {
+                    if (config.mode !== 'daemon') onModeChange('daemon');
+                  }}
+                >
+                  {t('inlineSwitcher.chipCli')}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={config.mode === 'api'}
+                  className={styles.modeOption}
+                  data-testid="avatar-mode-api"
+                  disabled={controlsDisabled}
+                  title={t('inlineSwitcher.useByok')}
+                  onClick={() => {
+                    if (config.mode !== 'api') onModeChange('api');
+                  }}
+                >
+                  {t('inlineSwitcher.chipByok')}
+                </button>
+              </div>
+            </div>
+            {config.mode === 'daemon' ? (
+              <div className="avatar-select-row">
+                <span className="avatar-select-label">{t('inlineSwitcher.agentLabel')}</span>
+                {selectableAgents.length > 0 ? (
+                  <div
+                    className={`avatar-model-list ${styles.optionList}`}
+                    role="radiogroup"
+                    aria-label={t('inlineSwitcher.agentLabel')}
+                    data-testid="avatar-agent-list"
+                  >
+                    {selectableAgents.map((agent) => {
+                      const active = agent.id === config.agentId;
+                      const name = agent.id === 'amr' ? 'OpenDesign' : agent.name;
+                      return (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          title={name}
+                          className={`avatar-model-option${active ? ' is-active' : ''}`}
+                          data-testid={`avatar-agent-option-${agent.id}`}
+                          disabled={controlsDisabled}
+                          onClick={() => {
+                            // The popover stays open so a model can be picked next.
+                            if (!active) onAgentChange(agent.id);
+                          }}
+                        >
+                          <span className="avatar-model-option-logo" aria-hidden="true">
+                            <AgentIcon id={agent.id} size={16} />
+                          </span>
+                          <span className="avatar-model-option-label">
+                            {agent.available ? name : `${name} · ${t('avatar.metaOffline')}`}
+                          </span>
+                          {active ? (
+                            <RemixIcon name="check-line" size={14} className="avatar-model-option-check" />
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className={styles.warning} role="status">
+                    {t('inlineSwitcher.noAgentsDetected')}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="avatar-select-row">
+                <span className="avatar-select-label">{t('inlineSwitcher.providerLabel')}</span>
+                <div
+                  className={`avatar-model-list ${styles.optionList}`}
+                  role="radiogroup"
+                  aria-label={t('inlineSwitcher.providerLabel')}
+                  data-testid="avatar-provider-list"
+                >
+                  {selectableProviders.map((provider) => {
+                    const active = provider.id === (config.apiProtocol ?? 'anthropic');
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        title={provider.title}
+                        className={`avatar-model-option${active ? ' is-active' : ''}`}
+                        data-testid={`avatar-provider-option-${provider.id}`}
+                        disabled={controlsDisabled}
+                        onClick={() => {
+                          if (!active) onApiProtocolChange?.(provider.id);
+                        }}
+                      >
+                        <span className="avatar-model-option-logo" aria-hidden="true">
+                          <RemixIcon name="link" size={16} />
+                        </span>
+                        <span className="avatar-model-option-label">{provider.title}</span>
+                        {active ? (
+                          <RemixIcon name="check-line" size={14} className="avatar-model-option-check" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+                {!currentProviderConfigured ? (
+                  <div className={styles.warning} role="status">
+                    {t('inlineSwitcher.missingApiKey')}
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
           {config.mode === 'daemon' ? (
             <>
               {hasSelectableModels && currentAgent ? (
@@ -643,6 +805,7 @@ export function AvatarMenu({
                                 locked ? ' is-locked' : ''
                               }`}
                               data-testid={`avatar-model-option-${model.id}`}
+                              disabled={controlsDisabled}
                               onClick={() => {
                                 if (locked) {
                                   openAmrUpgrade();
@@ -705,6 +868,7 @@ export function AvatarMenu({
                       </span>
                       <select
                         className="avatar-select"
+                        disabled={controlsDisabled}
                         value={currentReasoningId}
                         onChange={(event) =>
                           onAgentModelChange(currentAgent.id, {
@@ -727,6 +891,7 @@ export function AvatarMenu({
                       </span>
                       <select
                         className="avatar-select"
+                        disabled={controlsDisabled}
                         value={currentServiceTierId}
                         onChange={(event) =>
                           onAgentModelChange(currentAgent.id, {
@@ -815,6 +980,7 @@ export function AvatarMenu({
                           title={model.label}
                           className={`avatar-model-option${active ? ' is-active' : ''}`}
                           data-testid={`avatar-model-option-${model.id}`}
+                          disabled={controlsDisabled}
                           onClick={() => {
                             onApiModelChange?.(model.id);
                             // Selection made — dismiss the popover right away.
