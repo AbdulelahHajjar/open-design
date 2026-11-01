@@ -55,6 +55,7 @@ import {
   waitForLauncherAfterQuit,
 } from "./launcher-after-quit.js";
 import { confirmPackagedLauncherRuntime, resolvePackagedLauncherRuntime } from "./launcher-runtime.js";
+import { holdMacLauncherForBootstrappedDesktop } from "./macos-launcher-guardian.js";
 import {
   applyPackagedElectronPathOverrides,
   claimPackagedSingleInstanceLock,
@@ -243,6 +244,12 @@ async function main(): Promise<void> {
     if (command === process.execPath) throw new Error("hosted launcher requires a background Electron helper");
     await adoptSidecarProcess(launchStamp, generationResources, { command });
   } else if (await bootstrapSidecarProcess(launchStamp, generationResources)) {
+    // tools-pack's convergence waits for a stamped launcher to exit, and a
+    // direct `--headless` run returns once its runtime is ready, so only an
+    // app launch stays behind as the guardian.
+    if (process.platform === "darwin" && !isCurrentSidecarLauncher() && !headlessRequest.headless) {
+      await holdMacLauncherForBootstrappedDesktop(launchStamp, { logsRoot: initialPaths.logsRoot });
+    }
     app.exit(0);
     return;
   }
