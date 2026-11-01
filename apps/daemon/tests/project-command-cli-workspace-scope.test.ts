@@ -120,6 +120,16 @@ function successResponse(request: RequestRecord, res: http.ServerResponse): void
     });
     return;
   }
+  if (/\/conversations\/[^/]+$/.test(request.url) && request.method === 'PATCH') {
+    sendJson(res, 200, {
+      conversation: {
+        id: 'conversation-1',
+        projectId: projectIdForRequest(request),
+        sessionMode: 'design',
+      },
+    });
+    return;
+  }
   if (/\/conversations$/.test(request.url)) {
     sendJson(res, 200, { conversations: [] });
     return;
@@ -262,6 +272,19 @@ const commandFixtures: CommandFixture[] = [
     label: 'conversation list',
     args: (projectId) => ['conversation', 'list', projectId, '--json'],
     requests: (projectId) => [`GET /api/projects/${projectId}/conversations`],
+  },
+  {
+    label: 'conversation update',
+    args: (projectId) => [
+      'conversation',
+      'update',
+      projectId,
+      'conversation-1',
+      '--agent',
+      'codex',
+      '--json',
+    ],
+    requests: (projectId) => [`PATCH /api/projects/${projectId}/conversations/conversation-1`],
   },
   {
     label: 'chat new',
@@ -485,6 +508,10 @@ describe('project command CLI explicit Workspace scope', () => {
     {
       label: 'conversation',
       args: ['conversation', 'new', 'bound-project', '--json'],
+    },
+    {
+      label: 'conversation update',
+      args: ['conversation', 'update', 'bound-project', 'conversation-1', '--title', 'x', '--json'],
     },
     {
       label: 'chat',

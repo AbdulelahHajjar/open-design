@@ -20,6 +20,7 @@ import {
   createConversation,
   listConversations,
   listMessages,
+  patchConversation,
 } from '../../src/state/projects';
 import type { AgentInfo, AppConfig, ChatMessage, Conversation, Project } from '../../src/types';
 
@@ -207,7 +208,6 @@ function projectView(extra: Partial<ComponentProps<typeof ProjectView>> = {}) {
         models: [{ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', default: true }],
       }] as unknown as AgentInfo[]}
       skills={[]} designTemplates={[]} designSystems={[]} daemonLive
-      onModeChange={vi.fn()} onAgentChange={vi.fn()} onAgentModelChange={vi.fn()}
       onRefreshAgents={vi.fn()} onOpenSettings={vi.fn()} onBack={vi.fn()}
       onClearPendingPrompt={vi.fn()} onTouchProject={vi.fn()}
       onProjectChange={vi.fn()} onProjectsRefresh={vi.fn()}
@@ -226,6 +226,7 @@ describe('ProjectView Cloud retry across authority confirmation', () => {
     vi.mocked(listConversations).mockReset().mockResolvedValue([conversation]);
     vi.mocked(createConversation).mockReset().mockResolvedValue(conversation);
     vi.mocked(listMessages).mockReset().mockResolvedValue([history]);
+    vi.mocked(patchConversation).mockReset();
     vi.mocked(streamViaDaemon).mockReset().mockResolvedValue(undefined);
     vi.mocked(fetchVelaLoginStatus).mockReset().mockResolvedValue(null);
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })));
@@ -362,15 +363,18 @@ describe('ProjectView Cloud retry across authority confirmation', () => {
     vi.mocked(listConversations).mockResolvedValue([conversation, sideConversation]);
     vi.mocked(listMessages).mockImplementation(async (_projectId, conversationId) =>
       conversationId === sideConversation.id ? sideTranscript : [history]);
+    // The daemon answers the executor PATCH with the stored row after the patch.
+    vi.mocked(patchConversation).mockImplementation(async (_projectId, id, patch) => {
+      const stored = [conversation, sideConversation].find((candidate) => candidate.id === id);
+      return stored ? { ...stored, ...patch } : null;
+    });
     const arm = vi.fn();
     const settings = vi.fn();
-    const persistCloud = vi.fn().mockResolvedValue(undefined);
     const origin = render(projectView({
       routeConversationId: conversation.id,
       config: { ...config, agentId: 'codex' },
       onArmAmrAuthRetryContinuation: arm,
       onOpenAmrSettings: settings,
-      onSwitchToCloud: persistCloud,
     }));
     const sideHost = await origin.findByTestId('side-chat-recovery-host');
     await within(sideHost).findByText(sideFailure.content);
@@ -379,10 +383,17 @@ describe('ProjectView Cloud retry across authority confirmation', () => {
     await act(async () => {
       fireEvent.click(within(card).getByRole('button', { name: 'chat.amrCard.switchCta' }));
     });
-    expect(persistCloud).toHaveBeenCalledOnce();
     expect(arm).not.toHaveBeenCalled();
     expect(settings).not.toHaveBeenCalled();
     expect(await origin.findByText('chat.amrCard.switchedResend')).toBeVisible();
+    // Cloud becomes the clicked side conversation's executor; the primary
+    // conversation is not written.
+    const executorWrites = vi.mocked(patchConversation).mock.calls
+      .filter(([, , patch]) => 'executor' in patch)
+      .map(([projectId, id, patch]) => [projectId, id, patch]);
+    expect(executorWrites).toEqual([
+      [project.id, sideConversation.id, { executor: { mode: 'daemon', agentId: 'amr' } }],
+    ]);
     expect(streamViaDaemon).not.toHaveBeenCalled();
     expect(sideTranscript).toEqual(originalSideTranscript);
     expect(sideHost.getAttribute('data-primary-conversation')).toBe(conversation.id);

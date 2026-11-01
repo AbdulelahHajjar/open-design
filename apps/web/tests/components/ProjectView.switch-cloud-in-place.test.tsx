@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
 // OPEND-3205: switching a failed CLI/BYOK turn to Cloud stays in the project;
-// the user, rather than a Settings continuation, sends the next task.
+// the user, rather than a Settings continuation, sends the next task. The
+// switch moves only the clicked conversation to Cloud: it is written as that
+// conversation's executor, and the app-wide default is left alone.
 
 import { act, cleanup, fireEvent, render, waitFor, within } from '@testing-library/react';
 import { buildWorkspacePermissions, type WorkspaceCollabContext } from '@open-design/contracts';
-import { forwardRef, useImperativeHandle, useState, type ComponentProps, type ReactNode } from 'react';
+import { forwardRef, useImperativeHandle, type ComponentProps, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ProjectView } from '../../src/components/ProjectView';
@@ -18,6 +20,7 @@ import {
   createConversation,
   listConversations,
   listMessages,
+  patchConversation,
 } from '../../src/state/projects';
 import type { AgentInfo, AppConfig, ChatMessage, Conversation, Project } from '../../src/types';
 
@@ -174,6 +177,24 @@ const config: AppConfig = {
   mode: 'daemon', apiKey: '', baseUrl: '', model: 'deepseek-v4-flash', agentId: 'amr',
   skillId: null, designSystemId: null,
 };
+const CLOUD_EXECUTOR_PATCH: Pick<Conversation, 'executor'> = {
+  executor: { mode: 'daemon', agentId: 'amr' },
+};
+
+// The daemon answers a conversation PATCH with the stored row after the patch.
+function acceptConversationPatches(stored: readonly Conversation[]) {
+  vi.mocked(patchConversation).mockImplementation(async (_projectId, id, patch) => {
+    const current = stored.find((candidate) => candidate.id === id);
+    return current ? { ...current, ...patch } : null;
+  });
+}
+
+/** Every executor write this project sent for one conversation, in order. */
+function executorWrites(conversationId: string) {
+  return vi.mocked(patchConversation).mock.calls
+    .filter(([projectId, id, patch]) => projectId === project.id && id === conversationId && 'executor' in patch)
+    .map(([, , patch]) => patch);
+}
 
 function readableScope(context = MEMBER): ProjectWorkspaceScopeState {
   return {
@@ -194,7 +215,6 @@ function projectView(extra: Partial<ComponentProps<typeof ProjectView>> = {}) {
         models: [{ id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash', default: true }],
       }] as unknown as AgentInfo[]}
       skills={[]} designTemplates={[]} designSystems={[]} daemonLive
-      onModeChange={vi.fn()} onAgentChange={vi.fn()} onAgentModelChange={vi.fn()}
       onRefreshAgents={vi.fn()} onOpenSettings={vi.fn()} onBack={vi.fn()}
       onClearPendingPrompt={vi.fn()} onTouchProject={vi.fn()}
       onProjectChange={vi.fn()} onProjectsRefresh={vi.fn()}
@@ -214,6 +234,8 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
     vi.mocked(listConversations).mockReset().mockResolvedValue([conversation]);
     vi.mocked(createConversation).mockReset().mockResolvedValue(conversation);
     vi.mocked(listMessages).mockReset().mockResolvedValue([history]);
+    vi.mocked(patchConversation).mockReset();
+    acceptConversationPatches([conversation]);
     vi.mocked(streamViaDaemon).mockReset().mockResolvedValue(undefined);
     vi.mocked(fetchVelaLoginStatus).mockReset().mockResolvedValue(null);
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })));
@@ -226,10 +248,10 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
   });
 
   it.each([
-    ['main CLI', false, 'daemon'],
-    ['main BYOK', false, 'api'],
-    ['inactive side CLI', true, 'daemon'],
-  ] as const)('%s switches in place without arming or sending an automatic retry', async (_label, side, mode) => {
+    ['main CLI', false, 'daemon', 'codex'],
+    ['main BYOK', false, 'api', 'anthropic-api'],
+    ['inactive side CLI', true, 'daemon', 'codex'],
+  ] as const)('%s switches in place without arming or sending an automatic retry', async (_label, side, mode, failedAgentId) => {
     const targetConversation: Conversation = side
       ? { ...conversation, id: 'inactive-side-conversation', sessionMode: 'chat' }
       : conversation;
@@ -238,42 +260,29 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
     };
     const failure: ChatMessage = {
       id: 'failed-local-turn', role: 'assistant', content: 'Retained local failure', createdAt: 2,
-      agentId: 'codex', runId: 'original-local-run', runStatus: 'failed',
+      agentId: failedAgentId, runId: 'original-local-run', runStatus: 'failed',
       events: [{ kind: 'status', label: 'error', code: 'AGENT_EXECUTION_FAILED',
         failureDetail: 'process_crashed', detail: 'Controlled local failure' }],
     };
     const transcript = [prompt, failure];
     const original = structuredClone(transcript);
     workspace.sideConversationId = side ? targetConversation.id : null;
-    vi.mocked(listConversations).mockResolvedValue(side ? [conversation, targetConversation] : [conversation]);
+    const stored = side ? [conversation, targetConversation] : [conversation];
+    vi.mocked(listConversations).mockResolvedValue(stored);
     vi.mocked(listMessages).mockImplementation(async (_projectId, conversationId) =>
       conversationId === targetConversation.id ? transcript : [history]);
+    acceptConversationPatches(stored);
     const openSettings = vi.fn();
     const arm = vi.fn();
+    // Deprecated App setters for the app-wide default; the switch must not use them.
+    const switchAppToCloud = vi.fn(async () => undefined);
     const changeMode = vi.fn();
     const changeAgent = vi.fn();
-    function InProjectConfigurationOwner() {
-      const [currentConfig, setCurrentConfig] = useState<AppConfig>({ ...config, mode, agentId: 'codex' });
-      return <I18nProvider initial="zh-CN">
-        <output data-testid="selected-runtime">{currentConfig.mode}:{currentConfig.agentId}</output>
-        {projectView({
-          routeConversationId: conversation.id, config: currentConfig,
-          onOpenAmrSettings: openSettings, onArmAmrAuthRetryContinuation: arm,
-          onSwitchToCloud: async () => {
-            setCurrentConfig((current) => ({ ...current, mode: 'daemon', agentId: 'amr' }));
-          },
-          onModeChange: (next) => {
-            changeMode(next);
-            setCurrentConfig((current) => ({ ...current, mode: next }));
-          },
-          onAgentChange: (next) => {
-            changeAgent(next);
-            setCurrentConfig((current) => ({ ...current, agentId: next }));
-          },
-        })}
-      </I18nProvider>;
-    }
-    const view = render(<InProjectConfigurationOwner />);
+    const view = render(<I18nProvider initial="zh-CN">{projectView({
+      routeConversationId: conversation.id, config: { ...config, mode, agentId: 'codex' },
+      onOpenAmrSettings: openSettings, onArmAmrAuthRetryContinuation: arm,
+      onSwitchToCloud: switchAppToCloud, onModeChange: changeMode, onAgentChange: changeAgent,
+    })}</I18nProvider>);
     const host = side ? await view.findByTestId('side-chat-recovery-host') : view.container;
     await within(host).findByText(failure.content);
     const card = within(host).getByTestId('chat-run-error-card');
@@ -284,9 +293,15 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
     // This rejects the previous Settings handoff at the real ProjectView host.
     expect(openSettings).not.toHaveBeenCalled();
     expect(arm).not.toHaveBeenCalled();
-    await waitFor(() => expect(view.getByTestId('selected-runtime')).toHaveTextContent('daemon:amr'));
     // Literal approved by the current OPEND-3205 body, not read back from Dict.
     expect(await view.findByText('已切换到 OpenDesign Cloud，请重新发送任务。')).toBeVisible();
+    // Cloud is written to the clicked conversation only; the app-wide default
+    // and every other conversation keep their executors.
+    expect(executorWrites(targetConversation.id)).toEqual([CLOUD_EXECUTOR_PATCH]);
+    if (side) expect(executorWrites(conversation.id)).toEqual([]);
+    expect(switchAppToCloud).not.toHaveBeenCalled();
+    expect(changeMode).not.toHaveBeenCalled();
+    expect(changeAgent).not.toHaveBeenCalled();
     expect(streamViaDaemon).not.toHaveBeenCalled();
     expect(createConversation).not.toHaveBeenCalled();
     expect(transcript).toEqual(original);
@@ -312,16 +327,16 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
       };
       const transcript = [history, failure];
       vi.mocked(listMessages).mockResolvedValue(transcript);
-      let resolve!: () => void;
-      let reject!: (error: Error) => void;
-      const receipt = new Promise<void>((done, fail) => { resolve = done; reject = fail; });
-      const persistCloud = vi.fn(() => receipt);
+      // The executor PATCH stays pending until the scenario settles it; a
+      // save failure is the daemon refusing it (`patchConversation` -> null).
+      let settle!: (saved: Conversation | null) => void;
+      const receipt = new Promise<Conversation | null>((done) => { settle = done; });
+      vi.mocked(patchConversation).mockImplementation(() => receipt);
       const settings = vi.fn();
       const arm = vi.fn();
       const host = () => <I18nProvider initial="zh-CN">{projectView({
         routeConversationId: conversation.id,
         config: { ...config, agentId: 'codex' },
-        onSwitchToCloud: persistCloud,
         onOpenAmrSettings: settings,
         onArmAmrAuthRetryContinuation: arm,
       })}</I18nProvider>;
@@ -334,7 +349,7 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
           fireEvent.click(action);
           if (scenario === 'pending double click') fireEvent.click(action);
         });
-        expect(persistCloud).toHaveBeenCalledOnce();
+        expect(executorWrites(conversation.id)).toEqual([CLOUD_EXECUTOR_PATCH]);
         expect(settings).not.toHaveBeenCalled();
         expect(arm).not.toHaveBeenCalled();
         expect(streamViaDaemon).not.toHaveBeenCalled();
@@ -347,9 +362,8 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
           view.rerender(host());
         }
         await act(async () => {
-          if (scenario === 'save failure') reject(new Error('Controlled app-config PUT 503'));
-          else resolve();
-          await receipt.catch(() => undefined);
+          settle(scenario === 'save failure' ? null : { ...conversation, ...CLOUD_EXECUTOR_PATCH });
+          await receipt;
         });
         if (scenario === 'pending double click') {
           expect(await view.findByText('已切换到 OpenDesign Cloud，请重新发送任务。')).toBeVisible();
@@ -359,17 +373,51 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
         if (scenario === 'save failure') {
           expect(await view.findByText('保存更改失败。本地 daemon 可能不在线。')).toBeVisible();
           expect(view.getByTestId('chat-run-error-card')).toBeVisible();
-          // A rejected receipt releases the lock so the same visible action is usable again.
+          // A refused write releases the lock so the same visible action is usable again.
           await act(async () => { fireEvent.click(action); });
-          expect(persistCloud).toHaveBeenCalledTimes(2);
+          expect(executorWrites(conversation.id)).toEqual([CLOUD_EXECUTOR_PATCH, CLOUD_EXECUTOR_PATCH]);
         }
         expect(streamViaDaemon).not.toHaveBeenCalled();
         expect(createConversation).not.toHaveBeenCalled();
       } finally {
-        await act(async () => { resolve(); await receipt.catch(() => undefined); });
+        await act(async () => { settle(null); await receipt; });
       }
     },
   );
+
+  it('runs nothing on Cloud before the switch is saved', async () => {
+    const failure: ChatMessage = {
+      id: 'failed-before-confirmed-switch', role: 'assistant', content: 'Local failure before Cloud', createdAt: 2,
+      agentId: 'codex', runId: 'old-local-run', runStatus: 'failed',
+      events: [{ kind: 'status', label: 'error', code: 'AGENT_EXECUTION_FAILED',
+        failureDetail: 'process_crashed', detail: 'Controlled local failure' }],
+    };
+    vi.mocked(listMessages).mockResolvedValue([history, failure]);
+    let settle!: (saved: Conversation | null) => void;
+    const receipt = new Promise<Conversation | null>((done) => { settle = done; });
+    vi.mocked(patchConversation).mockImplementation(() => receipt);
+    const view = render(<I18nProvider initial="zh-CN">{projectView({
+      routeConversationId: conversation.id,
+      config: { ...config, agentId: 'codex' },
+    })}</I18nProvider>);
+    await view.findByText(failure.content);
+    const action = within(view.getByTestId('chat-run-error-card'))
+      .getByRole('button', { name: '切换到 OpenDesign Cloud' });
+    try {
+      await act(async () => { fireEvent.click(action); });
+      expect(executorWrites(conversation.id)).toEqual([CLOUD_EXECUTOR_PATCH]);
+
+      // The write is still pending: a send now stays on the conversation's
+      // confirmed executor.
+      fireEvent.click(view.getByTestId('composer-fixture-send'));
+      await waitFor(() => expect(streamViaDaemon).toHaveBeenCalledOnce());
+      expect(vi.mocked(streamViaDaemon).mock.calls[0]![0]).toEqual(
+        expect.objectContaining({ conversationId: conversation.id, agentId: 'codex' }),
+      );
+    } finally {
+      await act(async () => { settle(null); await receipt; });
+    }
+  });
 
   it.each([
     ['editable local main', false, false],
@@ -392,15 +440,16 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
     };
     workspace.viewerOnly = readOnly;
     workspace.sideConversationId = side ? target.id : null;
-    vi.mocked(listConversations).mockResolvedValue(side ? [conversation, target] : [conversation]);
+    const stored = side ? [conversation, target] : [conversation];
+    vi.mocked(listConversations).mockResolvedValue(stored);
     vi.mocked(listMessages).mockImplementation(async (_project, id) => id === target.id ? [history, failure] : [history]);
-    const receipt = vi.fn().mockResolvedValue(undefined);
+    acceptConversationPatches(stored);
     const settings = vi.fn();
     const arm = vi.fn();
     const view = render(<I18nProvider initial="zh-CN">{projectView({
       project: localProject, routeConversationId: conversation.id,
       config: { ...config, agentId: 'codex' },
-      onSwitchToCloud: receipt, onOpenAmrSettings: settings,
+      onOpenAmrSettings: settings,
       onArmAmrAuthRetryContinuation: arm,
     })}</I18nProvider>);
     const host = side ? await view.findByTestId('side-chat-recovery-host') : view.container;
@@ -409,11 +458,11 @@ describe('ProjectView OPEND-3205 in-project Cloud switch', () => {
     if (readOnly) {
       expect(action).toBeDisabled();
       fireEvent.click(action);
-      expect(receipt).not.toHaveBeenCalled();
+      expect(executorWrites(target.id)).toEqual([]);
     } else {
       expect(action).not.toBeDisabled();
       await act(async () => { fireEvent.click(action); });
-      expect(receipt).toHaveBeenCalledOnce();
+      expect(executorWrites(target.id)).toEqual([CLOUD_EXECUTOR_PATCH]);
       expect(await view.findByText('已切换到 OpenDesign Cloud，请重新发送任务。')).toBeVisible();
     }
     expect(settings).not.toHaveBeenCalled();

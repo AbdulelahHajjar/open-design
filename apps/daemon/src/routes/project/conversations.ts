@@ -1,5 +1,12 @@
 import type { Express } from 'express';
-import { MESSAGES_STREAM_CONTENT_TYPE, type ChatMessage, type ChatSessionMode, type TaskDisplayProjection } from '@open-design/contracts';
+import {
+  MESSAGES_STREAM_CONTENT_TYPE,
+  parseConversationExecutor,
+  type ChatMessage,
+  type ChatSessionMode,
+  type ConversationExecutor,
+  type TaskDisplayProjection,
+} from '@open-design/contracts';
 import { streamMessages } from '../../http/message-stream.js';
 import { readAnalyticsContext } from '../../analytics.js';
 import { nextForkedConversationTitle } from '../../conversation-fork-title.js';
@@ -18,8 +25,10 @@ import {
   countMessages,
   deleteConversationAndRepairTeamCommentAnchor,
   isProjectCommentAnchorConversationId,
+  lastAssistantAgentId,
   listSiblingRunDoneKeys,
 } from '../../db.js';
+import { resolveStoredOrRecordedExecutor } from '../../conversation-executor.js';
 
 export interface RegisterProjectConversationRoutesDeps extends RouteDeps<'db' | 'design' | 'http' | 'paths' | 'projectStore' | 'conversations' | 'ids' | 'telemetry' | 'appConfig' | 'agents'> {
   /**
@@ -160,6 +169,15 @@ export function registerProjectConversationRoutes(app: Express, ctx: RegisterPro
     if (hasExplicitSessionMode && !isChatSessionMode(req.body.sessionMode)) {
       return sendApiError(res, 400, 'BAD_REQUEST', 'sessionMode must be one of design, chat, or plan');
     }
+    const hasExplicitExecutor = Boolean(
+      req.body && Object.prototype.hasOwnProperty.call(req.body, 'executor'),
+    );
+    const explicitExecutor = hasExplicitExecutor
+      ? parseConversationExecutor(req.body.executor)
+      : null;
+    if (explicitExecutor && !explicitExecutor.ok) {
+      return sendApiError(res, 400, 'BAD_REQUEST', explicitExecutor.message);
+    }
     const requestedForkMessageId =
       typeof forkAfterMessageId === 'string' && forkAfterMessageId
         ? forkAfterMessageId
@@ -240,6 +258,18 @@ export function registerProjectConversationRoutes(app: Express, ctx: RegisterPro
         : sourceConversation && sourceConversation.projectId === req.params.id
           ? normalizeChatSessionMode(sourceConversation.sessionMode)
           : 'design';
+    // An explicit executor, including an explicit null, wins over the fork
+    // source's. The source's is resolved against its whole history, so a fork
+    // cut at an earlier turn still continues on what the source runs on now.
+    const executor: ConversationExecutor | null =
+      explicitExecutor?.ok
+        ? explicitExecutor.executor
+        : sourceConversation && sourceConversation.projectId === req.params.id
+          ? resolveStoredOrRecordedExecutor(
+              sourceConversation.executor,
+              lastAssistantAgentId(db, sourceConversation.id),
+            )
+          : null;
     const explicitTitle = typeof title === 'string' ? title.trim() || null : null;
     /*
      * 从一条回复新开的会话由 **daemon** 起名(「{源标题} (n)」,见
@@ -269,6 +299,7 @@ export function registerProjectConversationRoutes(app: Express, ctx: RegisterPro
       projectId: req.params.id,
       title: resolvedTitle,
       sessionMode,
+      executor,
       createdAt: now,
       updatedAt: now,
     });
@@ -337,7 +368,15 @@ export function registerProjectConversationRoutes(app: Express, ctx: RegisterPro
     ) {
       return sendApiError(res, 400, 'BAD_REQUEST', 'sessionMode must be one of design, chat, or plan');
     }
-    const updated = updateConversation(db, req.params.cid, req.body || {});
+    const patch = { ...(req.body || {}) };
+    if (Object.prototype.hasOwnProperty.call(patch, 'executor')) {
+      const parsedExecutor = parseConversationExecutor(patch.executor);
+      if (!parsedExecutor.ok) {
+        return sendApiError(res, 400, 'BAD_REQUEST', parsedExecutor.message);
+      }
+      patch.executor = parsedExecutor.executor;
+    }
+    const updated = updateConversation(db, req.params.cid, patch);
     res.json({ conversation: updated });
   });
 

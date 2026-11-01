@@ -54,6 +54,14 @@ import {
   settledSignalFromMessages,
 } from '../runtime/chat/reconnect-state';
 import { forkBoundaryMessageIndex } from '../runtime/chat/fork-boundary';
+import {
+  applyExecutorToConfig,
+  executorAfterEdit,
+  executorFromConfig,
+  lastAssistantAgentId,
+  resolveConversationExecutor,
+  type ConversationExecutorEdit,
+} from '../runtime/chat/conversation-executor';
 import { assistantMessageNeverHadARun } from '../runtime/chat/host-authored-message';
 import { resolveRecoveryActionBlockReason } from '../runtime/chat/recovery-gating';
 import { canRetainSuccessfulRunForBlockedStrategy } from '../runtime/blocked-strategy-result';
@@ -206,6 +214,7 @@ import {
 import { AmrBalanceDialog } from './AmrBalanceDialog';
 import { AmrConcurrencyDialog } from './AmrConcurrencyDialog';
 import { isMembershipConcurrencyLimitFailure } from '@open-design/contracts';
+import { sameConversationExecutor, type ConversationExecutor } from '@open-design/contracts';
 import { AmrOwnerTopUpDialog } from './chat/AmrOwnerTopUpDialog';
 import { markHistoryReplayLanded } from './chat/useCharReveal';
 import { workspaceAutoRechargeUrl, workspaceUpgradeUrl } from './EntryNavRail';
@@ -961,14 +970,22 @@ interface Props {
   designTemplates: SkillSummary[];
   designSystems: DesignSystemSummary[];
   daemonLive: boolean;
-  onModeChange: (mode: AppConfig['mode']) => void;
-  onAgentChange: (id: string) => void;
-  /** Resolves only after the App configuration owner has persisted Cloud. */
+  /**
+   * @deprecated Unused. Execution changes made inside a project apply to the
+   * open conversation's executor, never to the app-wide config, so this view
+   * no longer reports them upward. Kept optional until callers stop passing it.
+   */
+  onModeChange?: (mode: AppConfig['mode']) => void;
+  /** @deprecated Unused; see `onModeChange`. */
+  onAgentChange?: (id: string) => void;
+  /** @deprecated Unused; see `onModeChange`. */
   onSwitchToCloud?: () => Promise<void>;
-  onAgentModelChange: (
+  /** @deprecated Unused; see `onModeChange`. */
+  onAgentModelChange?: (
     id: string,
     choice: { model?: string; reasoning?: string; serviceTier?: string },
   ) => void;
+  /** @deprecated Unused; see `onModeChange`. */
   onApiModelChange?: (model: string) => void;
   onRefreshAgents: () => void;
   onOpenSettings: (section?: SettingsSection) => void;
@@ -2195,20 +2212,15 @@ export function ProjectView({
   onLoginUpdateRequestHandled,
   shareLoginReturn,
   onShareLoginReturnChange,
-  config,
+  config: globalConfig,
   agents,
   skills,
   designTemplates,
   designSystems,
   daemonLive,
-  onModeChange,
-  onAgentChange,
-  onAgentModelChange,
-  onApiModelChange,
   onRefreshAgents,
   onOpenSettings,
   onOpenAmrSettings,
-  onSwitchToCloud,
   onOpenMcpSettings,
   onBrowsePlugins,
   onOpenConnectors,
@@ -2426,31 +2438,6 @@ export function ProjectView({
     () => workspaceBillingAuthorityContext(projectRunPreflightContext, workspaceContext),
     [projectRunPreflightContext, workspaceContext],
   );
-  const cloudModelSelected = config.mode === 'daemon' && config.agentId === 'amr';
-  const projectRunRequiresWorkspaceScope = cloudModelSelected;
-  // An OpenDesign Cloud run needs a wallet, and the ONLY client-side veto is
-  // "there is no billing principal at all". Either witness suffices: the
-  // caller's own cloud identity, or a project scope that already names an
-  // explicit personal/team principal.
-  //
-  // What this deliberately stops doing is requiring the PROJECT's membership
-  // projection to resolve before a send. A transient directory failure says
-  // nothing authoritative about access or billing: the daemon still forwards
-  // the project's persisted Workspace id with the signed-in account, and Vela
-  // makes the final membership/balance decision. It must not be converted to a
-  // Personal run. A settled unbound historical project is also allowed to
-  // reach the daemon: with an exact Personal witness it may be transactionally
-  // adopted; with a Team/absent witness the daemon rejects it explicitly.
-  // An explicit backend rejection is preferable to a client-side dead button
-  // or a popup for the wrong wallet.
-  //
-  // Strictly a widening: every state this admits was previously blocked, and
-  // nothing previously admitted becomes blocked.
-  const projectRunHasBillableAmrPrincipal =
-    !projectRunRequiresWorkspaceScope ||
-    projectWorkspaceScopeState.scope?.kind === 'unbound' ||
-    workspaceIdentityCanBillAmr(workspaceContextState) ||
-    projectWorkspaceScopeAuthorizesAmr(projectWorkspaceScopeState.scope);
   // Onboarding first-generation funnel (spec §11.1). Consume the pending entry
   // (set by the Home recommendation) exactly once on mount; the refs guard the
   // two lifecycle events so each fires only for the genuine first send / first
@@ -2585,7 +2572,7 @@ export function ProjectView({
   // system into a new runtime turn.
   const projectDesignSystemId = resolvedProjectDesignSystemId;
   const runtimeDesignSystemId =
-    projectDesignSystemId && (config.disabledDesignSystems ?? []).includes(projectDesignSystemId)
+    projectDesignSystemId && (globalConfig.disabledDesignSystems ?? []).includes(projectDesignSystemId)
       ? null
       : projectDesignSystemId;
   const projectIsDesignSystemProject = isDesignSystemProject(currentProject);
@@ -2733,6 +2720,58 @@ export function ProjectView({
     useRef<ConversationMaterializationRecovery | null>(null);
   const [messageLoadRetryNonce, setMessageLoadRetryNonce] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // The active conversation runs on its own executor (see
+  // `runtime/chat/conversation-executor.ts`): its stored one, else the agent its
+  // last assistant turn recorded, else the app-wide default. `config` below is
+  // the execution config every send, retry, and composer control in this view
+  // uses; `globalConfig` is the app-wide default and is never written from here.
+  const activeConversationLegacyAgentId = useMemo(
+    () => (
+      messagesConversationId !== null && messagesConversationId === activeConversationId
+        ? lastAssistantAgentId(messages)
+        : null
+    ),
+    [activeConversationId, messages, messagesConversationId],
+  );
+  const activeConversationExecutor = resolveConversationExecutor({
+    stored: activeConversation?.executor,
+    legacyAgentId: activeConversationLegacyAgentId,
+  }).executor;
+  // Keyed by value: a refreshed conversation list hands back an equal executor
+  // in a new object, which must not re-create every callback that reads config.
+  const activeConversationExecutorKey = activeConversationExecutor
+    ? JSON.stringify(activeConversationExecutor)
+    : '';
+  const config = useMemo(
+    () => applyExecutorToConfig(globalConfig, activeConversationExecutor),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by value above
+    [globalConfig, activeConversationExecutorKey],
+  );
+  const cloudModelSelected = config.mode === 'daemon' && config.agentId === 'amr';
+  const projectRunRequiresWorkspaceScope = cloudModelSelected;
+  // An OpenDesign Cloud run needs a wallet, and the ONLY client-side veto is
+  // "there is no billing principal at all". Either witness suffices: the
+  // caller's own cloud identity, or a project scope that already names an
+  // explicit personal/team principal.
+  //
+  // What this deliberately stops doing is requiring the PROJECT's membership
+  // projection to resolve before a send. A transient directory failure says
+  // nothing authoritative about access or billing: the daemon still forwards
+  // the project's persisted Workspace id with the signed-in account, and Vela
+  // makes the final membership/balance decision. It must not be converted to a
+  // Personal run. A settled unbound historical project is also allowed to
+  // reach the daemon: with an exact Personal witness it may be transactionally
+  // adopted; with a Team/absent witness the daemon rejects it explicitly.
+  // An explicit backend rejection is preferable to a client-side dead button
+  // or a popup for the wrong wallet.
+  //
+  // Strictly a widening: every state this admits was previously blocked, and
+  // nothing previously admitted becomes blocked.
+  const projectRunHasBillableAmrPrincipal =
+    !projectRunRequiresWorkspaceScope ||
+    projectWorkspaceScopeState.scope?.kind === 'unbound' ||
+    workspaceIdentityCanBillAmr(workspaceContextState) ||
+    projectWorkspaceScopeAuthorizesAmr(projectWorkspaceScopeState.scope);
   // Claimed by Send/reattach, not by transcript order: a delayed host memory
   // notification can be appended after the currently running assistant row.
   const memoryTurnAssistantRef = useRef<{
@@ -2940,6 +2979,68 @@ export function ProjectView({
     ttlMs?: number;
     scope?: 'chat-pane';
   } | null>(null);
+  // Per conversation: the tail of its executor writes (so PATCHes land in the
+  // order they were made), how many are still in flight, and the executor the
+  // daemon last confirmed.
+  const executorWritesRef = useRef(new Map<string, {
+    tail: Promise<unknown>;
+    seq: number;
+    pending: number;
+    confirmed: ConversationExecutor | null;
+  }>());
+  /**
+   * Stores the executor a conversation runs on. By default the conversation
+   * list changes first, so the composer and the next send follow at once;
+   * `confirmFirst` waits for the daemon instead, so nothing runs on the new
+   * executor before it is saved. Writes to one conversation are sent in
+   * order; when the newest one fails, the executor the daemon last confirmed
+   * comes back. Resolves to `superseded` when a later write to the same
+   * conversation replaced this one before it settled.
+   */
+  const setConversationExecutor = useCallback(async (
+    conversationId: string,
+    executor: ConversationExecutor,
+    options: { confirmFirst?: boolean } = {},
+  ): Promise<'saved' | 'failed' | 'superseded' | 'skipped'> => {
+    if (projectMutationReadOnly) return 'skipped';
+    const current = conversationsRef.current.find((conversation) => conversation.id === conversationId);
+    if (!current) return 'skipped';
+    const writes = executorWritesRef.current;
+    let record = writes.get(conversationId);
+    if (!record) {
+      record = { tail: Promise.resolve(), seq: 0, pending: 0, confirmed: null };
+      writes.set(conversationId, record);
+    }
+    // With nothing in flight, the listed executor is the confirmed one (a
+    // list refresh may have brought a change made elsewhere).
+    if (record.pending === 0) record.confirmed = current.executor ?? null;
+    record.seq += 1;
+    record.pending += 1;
+    const seq = record.seq;
+    const showExecutor = (next: ConversationExecutor | null) => {
+      setConversations((curr) =>
+        curr.map((conversation) =>
+          conversation.id === conversationId ? { ...conversation, executor: next } : conversation,
+        ),
+      );
+    };
+    if (!options.confirmFirst) showExecutor(executor);
+    const write = record.tail.then(() =>
+      patchConversation(project.id, conversationId, { executor }, projectRunWorkspaceContext),
+    );
+    record.tail = write.catch(() => null);
+    const updated = await write.catch(() => null);
+    record.pending -= 1;
+    const isNewest = record.seq === seq;
+    if (updated) {
+      record.confirmed = updated.executor ?? null;
+      if (isNewest) showExecutor(record.confirmed);
+      return isNewest ? 'saved' : 'superseded';
+    }
+    if (!isNewest) return 'superseded';
+    showExecutor(record.confirmed);
+    return 'failed';
+  }, [project.id, projectMutationReadOnly, projectRunWorkspaceContext]);
   // Brand extraction has no SSE; this polls the brand's status and, once the
   // backing extraction finalizes a `user:<id>` design system, surfaces a
   // one-shot "ready — preview it" prompt so the user knows to open the Design
@@ -9741,6 +9842,12 @@ export function ProjectView({
       }
       activeCompletionNotificationRunsRef.current.add(assistantId);
       updateConversationLatestRun(config.mode === 'daemon' ? 'running' : 'queued');
+      // A conversation stores its executor at its first send, so it keeps
+      // running on it when the app-wide default changes later.
+      if (!conversationsRef.current.find((conversation) => conversation.id === runConversationId)?.executor) {
+        const pinned = executorFromConfig(config);
+        if (pinned) void setConversationExecutor(runConversationId, pinned);
+      }
       setArtifact(null);
       savedArtifactRef.current = null;
       // Queued sends already recorded their send time when they entered the
@@ -11546,6 +11653,7 @@ export function ProjectView({
       requireManualStartAfterFundingRefusal,
       onInitialHomeRequestProgress,
       amrBalanceCardScope,
+      setConversationExecutor,
     ],
   );
 
@@ -12013,6 +12121,42 @@ export function ProjectView({
     [activeConversationId, handleSend, messages],
   );
 
+  /**
+   * Applies one composer execution change to the open conversation only; the
+   * app-wide default is left as it is. Returns the executor the conversation
+   * moved to, or null when the change leaves nothing runnable.
+   */
+  const changeActiveConversationExecutor = useCallback(
+    (edit: ConversationExecutorEdit): ConversationExecutor | null => {
+      const conversationId = activeConversationIdRef.current;
+      if (!conversationId || projectMutationReadOnly) return null;
+      const next = executorAfterEdit(config, edit);
+      if (!next) return null;
+      const stored = conversationsRef.current.find((conversation) => conversation.id === conversationId)?.executor;
+      if (!sameConversationExecutor(next, stored)) {
+        void setConversationExecutor(conversationId, next).then((outcome) => {
+          if (outcome !== 'failed' || !mountedRef.current) return;
+          setProjectActionsToast({ message: t('settings.autosaveError'), details: null, tone: 'error' });
+        });
+      }
+      return next;
+    },
+    [config, projectMutationReadOnly, setConversationExecutor, t],
+  );
+  // The model picker opened from a failed turn's 〔更换模型〕 action re-runs that
+  // turn once the conversation has moved to the new model. The retry runs after
+  // the change has rendered, so it is sent with the new executor.
+  const [executorChangeRerun, setExecutorChangeRerun] = useState<{
+    conversationId: string;
+    message: ChatMessage;
+  } | null>(null);
+  useEffect(() => {
+    if (!executorChangeRerun) return;
+    setExecutorChangeRerun(null);
+    if (executorChangeRerun.conversationId !== activeConversationId) return;
+    handleRetry(executorChangeRerun.message, 'switch_model_retry');
+  }, [activeConversationId, executorChangeRerun, handleRetry]);
+
   // Release only the request we witnessed. Old responses must not unlock a
   // later attempt; accepting or rejecting it must not revive its old error card.
   useEffect(() => {
@@ -12073,7 +12217,6 @@ export function ProjectView({
   ) => {
     if (
       cloudSwitchInFlightRef.current
-      || !onSwitchToCloud
       || projectMutationReadOnly
       || !projectRunHasBillableAmrPrincipal
       || !conversations.some((conversation) =>
@@ -12090,7 +12233,14 @@ export function ProjectView({
       && activeConversationIdRef.current === sourcePrimaryConversationId;
     cloudSwitchInFlightRef.current = true;
     try {
-      await onSwitchToCloud();
+      // Cloud is this conversation's executor from now on; the app-wide
+      // default and every other conversation keep theirs. The conversation
+      // switches only once the daemon has saved it (OPEND-3205), so no turn
+      // runs on Cloud on the strength of an unconfirmed write.
+      const cloud = executorAfterEdit(globalConfig, { kind: 'agent', agentId: 'amr' });
+      if (!cloud || await setConversationExecutor(conversationId, cloud, { confirmFirst: true }) !== 'saved') {
+        throw new Error('Cloud executor was not saved');
+      }
       if (!stillOwnsView()) return;
       setProjectActionsToast({
         message: t('chat.amrCard.switchedResend'), details: null, tone: 'success',
@@ -12105,8 +12255,8 @@ export function ProjectView({
     }
   }, [
     activeConversationId, conversations, currentConversationActionDisabled,
-    onSwitchToCloud, project.id, projectMutationReadOnly, projectRunAuthorityKey,
-    projectRunHasBillableAmrPrincipal, t,
+    globalConfig, project.id, projectMutationReadOnly, projectRunAuthorityKey,
+    projectRunHasBillableAmrPrincipal, setConversationExecutor, t,
   ]);
   const handleSwitchToAmrAndRetry = useCallback((failedAssistant: ChatMessage) => {
     if (!activeConversationId) return;
@@ -12954,6 +13104,9 @@ export function ProjectView({
           seedFromConversationId: activeConversationId,
           forkAfterMessageId,
           sessionMode: activeSessionMode,
+          // The fork continues on the executor its source runs on, including
+          // one the source only derives from its history.
+          executor: activeConversation?.executor ?? executorFromConfig(config),
           /*
            * 兜底送的是**边界那条转录消息**,不是屏幕上那条折叠出来的 —— 折叠那条的正文
            * 是几个 run 拼起来的,真走到兜底路径就会把同一段内容再塞一遍。
@@ -13038,10 +13191,12 @@ export function ProjectView({
     },
     [
       activeConversationId,
+      activeConversation?.executor,
       activeConversation?.title,
       activeSessionMode,
       analytics,
       commitPreviewComments,
+      config,
       forkingMessageId,
       messages,
       navigate,
@@ -14603,13 +14758,32 @@ export function ProjectView({
 
   // CLI / agent selector lives below the chat conversation (composer footer),
   // not in the top-right header.
+  // The composer's execution menu changes the open conversation's executor,
+  // never the app-wide default.
+  const trackExecutorSelect = (executor: ConversationExecutor | null) => {
+    if (!executor) return;
+    trackComposerBarClick(analytics.track, {
+      page_name: 'chat_panel',
+      area: 'chat_composer',
+      element: 'agent_select',
+      agent_id: executor.mode === 'daemon'
+        ? executor.agentId
+        : apiProtocolAgentId(executor.apiProtocol),
+      ...(project?.id ? { project_id: project.id } : {}),
+    });
+  };
   const executionControls = (
     <>
       <AvatarMenu
         config={config}
         agents={agents}
         daemonLive={daemonLive}
-        onModeChange={onModeChange}
+        controlsDisabled={projectMutationReadOnly || !activeConversationId}
+        onModeChange={(mode) => {
+          const next = changeActiveConversationExecutor({ kind: 'mode', mode });
+          if (!next && mode === 'daemon') onOpenSettings('execution');
+          trackExecutorSelect(next);
+        }}
         onOpen={() => {
           trackComposerBarClick(analytics.track, {
             page_name: 'chat_panel',
@@ -14619,14 +14793,10 @@ export function ProjectView({
           });
         }}
         onAgentChange={(id) => {
-          trackComposerBarClick(analytics.track, {
-            page_name: 'chat_panel',
-            area: 'chat_composer',
-            element: 'agent_select',
-            agent_id: id,
-            ...(project?.id ? { project_id: project.id } : {}),
-          });
-          onAgentChange(id);
+          trackExecutorSelect(changeActiveConversationExecutor({ kind: 'agent', agentId: id }));
+        }}
+        onApiProtocolChange={(protocol) => {
+          trackExecutorSelect(changeActiveConversationExecutor({ kind: 'apiProtocol', protocol }));
         }}
         onAgentModelChange={(agentId, choice) => {
           trackComposerBarClick(analytics.track, {
@@ -14637,14 +14807,16 @@ export function ProjectView({
             ...(choice?.model ? { model_id: choice.model } : {}),
             ...(project?.id ? { project_id: project.id } : {}),
           });
-          onAgentModelChange(agentId, choice);
+          const next = changeActiveConversationExecutor({ kind: 'agentModel', agentId, choice });
           /*
            * 「选完自动重跑」的那一半。只有确实是从报错卡那颗〔更换模型〕进来的
            * 才会有待重跑的那一轮 —— 平时手动换模型不该无端重发。
            */
           const pending = rerunAfterModelChangeRef.current;
           rerunAfterModelChangeRef.current = null;
-          if (pending) handleRetry(pending, 'switch_model_retry');
+          if (pending && next && activeConversationId) {
+            setExecutorChangeRerun({ conversationId: activeConversationId, message: pending });
+          }
         }}
         onApiModelChange={(model) => {
           trackComposerBarClick(analytics.track, {
@@ -14654,7 +14826,7 @@ export function ProjectView({
             model_id: model,
             ...(project?.id ? { project_id: project.id } : {}),
           });
-          onApiModelChange?.(model);
+          changeActiveConversationExecutor({ kind: 'apiModel', model });
         }}
         onOpenSettings={onOpenSettings}
         onRefreshAgents={onRefreshAgents}
@@ -15001,7 +15173,9 @@ export function ProjectView({
               }
               onSwitchToLocalCli={() => {
                 setError(null);
-                onModeChange('daemon');
+                if (!changeActiveConversationExecutor({ kind: 'mode', mode: 'daemon' })) {
+                  onOpenSettings('execution');
+                }
               }}
               onOpenAmrSettings={onOpenAmrSettings}
               onSwitchToAmrAndRetry={handleSwitchToAmrAndRetry}
@@ -15228,7 +15402,7 @@ export function ProjectView({
               {...(projectCollab.member ? { selfMemberId: projectCollab.member.memberId } : {})}
             />
           ) : null}
-          chatConfig={config}
+          chatConfig={globalConfig}
           onTouchProject={onTouchProject}
           chatAgentsById={agentsById}
           handoffAgents={agents}
@@ -15245,9 +15419,7 @@ export function ProjectView({
           onConversationSessionModeChange={handleConversationSessionModeChange}
           onNewConversation={handleNewConversation}
           activeConversationChat={activeConversationChatState}
-          onSwitchConversationToCloud={
-            onSwitchToCloud ? handleSwitchConversationToCloud : undefined
-          }
+          onSwitchConversationToCloud={handleSwitchConversationToCloud}
           chatRecoveryActionsBlockedReason={resolveRecoveryActionBlockReason({
             readOnly: Boolean(projectMutationReadOnly),
             messagesUnavailable: false,
