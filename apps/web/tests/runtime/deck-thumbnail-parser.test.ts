@@ -14,7 +14,7 @@ function frameworkDeck(slides: number): string {
      </section>`,
   ).join('\n');
   return `<!doctype html><html><head><style>
-    :root { --bg: #fff; --fg: #111; }
+    :root { --bg: #fff; --fg: #111; --shell: #08090d; }
     html, body { background: var(--shell); color: var(--fg); }
     .deck-stage { width: 1920px; height: 1080px; background: var(--bg); }
     .slide:not(.active) { display: none !important; }
@@ -260,6 +260,51 @@ describe('parseDeckThumbnails', () => {
       }
     </style></head><body>
       <section class="slide">A</section>
+      <section class="slide">B</section>
+    </body></html>`;
+
+    expect(parseDeckThumbnails(html).renderable).toBe(true);
+  });
+
+  it('sends decks with color-scheme media queries to the iframe fallback', () => {
+    const html = `<!doctype html><html><head><style>
+      .slide { width: 1920px; height: 1080px; background: #fff; }
+      @media (prefers-color-scheme: dark) {
+        .slide { background: #111; color: #eee; }
+      }
+    </style></head><body>
+      <section class="slide">A</section>
+      <section class="slide">B</section>
+    </body></html>`;
+
+    const parsed = parseDeckThumbnails(html);
+
+    expect(parsed.renderable).toBe(false);
+    expect(parsed.reason).toBe('color-scheme-media-query');
+  });
+
+  it('sends decks that read a custom property they never define to the iframe fallback', () => {
+    // The shadow root would inherit the app's value for it (which changes with
+    // the app theme); the preview iframe uses the deck's own fallback.
+    const html = `<!doctype html><html><head><style>
+      .slide { width: 1920px; height: 1080px; background: var(--surface, #fff); color: #111; }
+    </style></head><body>
+      <section class="slide">A</section>
+      <section class="slide">B</section>
+    </body></html>`;
+
+    const parsed = parseDeckThumbnails(html);
+
+    expect(parsed.renderable).toBe(false);
+    expect(parsed.reason).toBe('inherited-custom-property');
+  });
+
+  it('counts custom properties set in inline styles as defined by the deck', () => {
+    const html = `<!doctype html><html><head><style>
+      .slide { width: 1920px; height: 1080px; }
+      .bar { width: calc(var(--v) / var(--max) * 100%); }
+    </style></head><body>
+      <section class="slide"><div style="--max: 5"><div class="bar" style="--v: 3"></div></div></section>
       <section class="slide">B</section>
     </body></html>`;
 

@@ -522,3 +522,37 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* File-kind glyph hues were dark literals tuned for a light tile; they move
+   onto the palette (violet takes the live-artifact magenta, the palette's
+   only violet-family hue). Thumbnails, the lightbox scrim and its frames are
+   authored content or deliberately dark, and stay. */
+:global(html[data-theme='dark']) .glyph[data-kind='pdf'] {
+  color: var(--red);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--red) 12%, var(--bg-panel)), var(--bg-subtle));
+}
+:global(html[data-theme='dark']) .glyph[data-kind='audio'] {
+  color: var(--tag-live-artifact-ink);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--tag-live-artifact-ink) 12%, var(--bg-panel)),
+    var(--bg-subtle)
+  );
+}
+:global(html[data-theme='dark']) .glyph[data-kind='slides'] {
+  color: var(--amber);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--amber) 12%, var(--bg-panel)), var(--bg-subtle));
+}
+:global(html[data-theme='dark']) .glyph[data-kind='html'],
+:global(html[data-theme='dark']) .glyph[data-kind='text'] {
+  color: var(--blue);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--blue) 12%, var(--bg-panel)), var(--bg-subtle));
+}
+:global(html[data-theme='dark']) .lightboxAudioIcon {
+  color: var(--tag-live-artifact-ink);
+  background: color-mix(in srgb, var(--tag-live-artifact-ink) 12%, var(--bg-subtle));
+}
+:global(html[data-theme='dark']) .lightboxFallbackGlyph[data-kind='slides'] {
+  color: var(--amber);
+}

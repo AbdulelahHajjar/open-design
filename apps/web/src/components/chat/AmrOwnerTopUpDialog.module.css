@@ -227,3 +227,12 @@
 .modal .cta:active:not(:disabled) {
   transform: scale(0.98);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The light veil mixes --chat-text-strong, which is near-white in dark. */
+:global(html[data-theme='dark']) .overlay {
+  background: var(--scrim-tint);
+}
+:global(html[data-theme='dark']) .modal {
+  background: var(--bg-elevated);
+}

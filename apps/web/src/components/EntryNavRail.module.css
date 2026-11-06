@@ -265,3 +265,21 @@
   background: currentColor;
   opacity: .18;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Light-grey scrollbar thumb, a red note ink, and the neutral (#fafafa / #666)
+   capsule the shared quota pill returns to; the capsule matches the
+   `.entry-top-right-account-pill` override in theme-dark/shell-home.css. */
+:global(html[data-theme='dark']) .workspaceMenu :global(.entry-nav-rail__workspace-list) {
+  scrollbar-color: var(--border-strong) transparent;
+}
+:global(html[data-theme='dark']) .workspaceMenu :global(.entry-nav-rail__workspace-list)::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+}
+:global(html[data-theme='dark']) .workspaceLimitNote {
+  color: var(--red);
+}
+:global(html[data-theme='dark']) .sharedQuotaPill:global(.entry-top-right-account-pill):not(:global(.entry-top-right-account-pill--upgrade)):has(:global([aria-expanded='true'])):not(:hover) {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}

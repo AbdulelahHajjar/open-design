@@ -1,0 +1,13 @@
+/* Dark theme overrides: components. See README.md for the rules. */
+
+/* ── packages/components/src/styles.css ──────────────────────────────── */
+
+/* Select menus are popovers: they sit on the raised surface, not the recessed
+   panel ground that matches the trigger. `:where()` keeps the base rule's
+   specificity so a caller that skins its own menu still wins. */
+:where(html[data-theme='dark']) .od-select-menu {
+  background: var(--bg-elevated);
+}
+
+/* The shared confirm dialog (workspace/mention-home.css) is overridden in
+   workspace.css. */

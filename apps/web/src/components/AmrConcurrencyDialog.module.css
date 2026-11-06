@@ -77,3 +77,13 @@
   box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
     0 10px 24px color-mix(in srgb, var(--accent) 26%, transparent);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Mirrors AmrBalanceDialog's frozen frame: the offer follows the app accent
+   in dark and sits on the raised surface. */
+:global(html[data-theme='dark']) .offerPanel {
+  --accent: inherit;
+  --accent-hover: inherit;
+  --accent-tint: inherit;
+  background: var(--bg-elevated);
+}

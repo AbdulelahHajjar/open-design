@@ -17,3 +17,20 @@
 .actions .confirm { background: #202020; }
 .actions .confirm:hover:not(:disabled) { background: #353535; }
 .actions .confirm:active:not(:disabled) { background: #000; }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+:global(html[data-theme='dark']) .dialog { background: var(--bg-elevated); color: var(--text); }
+:global(html[data-theme='dark']) .account { border-color: var(--border); color: var(--text-strong); }
+:global(html[data-theme='dark']) .actions .cancel,
+:global(html[data-theme='dark']) .actions .cancel:hover:not(:disabled),
+:global(html[data-theme='dark']) .actions .cancel:active:not(:disabled) { border-color: var(--border); color: var(--text-strong); }
+:global(html[data-theme='dark']) .actions .cancel { background: var(--bg-subtle); }
+:global(html[data-theme='dark']) .actions .cancel:hover:not(:disabled) { background: var(--bg-muted); }
+:global(html[data-theme='dark']) .actions .cancel:active:not(:disabled) { background: var(--border-strong); }
+/* The confirm is the dialog's primary action: accent fill, dark ink. */
+:global(html[data-theme='dark']) .actions .confirm,
+:global(html[data-theme='dark']) .actions .confirm:hover:not(:disabled),
+:global(html[data-theme='dark']) .actions .confirm:active:not(:disabled) { color: var(--accent-contrast); }
+:global(html[data-theme='dark']) .actions .confirm { background: var(--accent); }
+:global(html[data-theme='dark']) .actions .confirm:hover:not(:disabled) { background: var(--accent-hover); }
+:global(html[data-theme='dark']) .actions .confirm:active:not(:disabled) { background: var(--accent-strong); }

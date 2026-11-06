@@ -598,3 +598,16 @@
   .actions { align-items: center; flex-direction: row; gap: 10px; }
   .panel .primaryAction { min-width: 160px; }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* --brand stays neon in both themes while --brand-text turns light in dark,
+   so brand-filled chips need dark ink. The primary action paints the accent
+   (light in dark) and takes dark ink instead of the neon label. */
+:global(html[data-theme='dark']) .modelMarkFallback,
+:global(html[data-theme='dark']) .countdownLabel {
+  color: var(--accent-contrast);
+}
+
+:global(html[data-theme='dark']) .panel .primaryAction {
+  color: var(--accent-contrast);
+}

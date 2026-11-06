@@ -131,3 +131,10 @@
   font-weight: 500;
   color: var(--chat-text-strong);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Upstream mixes the scrim from the strong ink, which is near-white in dark;
+   here it is the pane ground at the app scrim's strength. */
+:global(html[data-theme='dark']) .overlay {
+  background: color-mix(in srgb, var(--chat-bg-panel) 62%, transparent);
+}

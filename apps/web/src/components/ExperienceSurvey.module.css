@@ -360,3 +360,17 @@
   line-height: 1.5;
   color: var(--text, #494949);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Picked chips are filled with the brand green and inked with --brand-text,
+   which is itself a light green here; the ink goes dark. */
+:global(html[data-theme='dark']) .cell.picked,
+:global(html[data-theme='dark']) .option.picked,
+:global(html[data-theme='dark']) .thanksMark {
+  color: var(--accent-contrast);
+}
+/* The card is a foreground object on a page of the same --bg; raise it. */
+:global(html[data-theme='dark']) .card {
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+}

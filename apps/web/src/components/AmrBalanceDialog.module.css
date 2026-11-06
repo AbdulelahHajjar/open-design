@@ -362,3 +362,24 @@
   outline: 2px solid #159447;
   outline-offset: 3px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The sign-in pill paints the accent, which is light in dark: dark ink. */
+:global(html[data-theme='dark']) .signInPill :global(.amr-account-control__action) {
+  color: var(--accent-contrast);
+}
+/* Light pins the frozen frame to the light accent; dark used to fall through
+   to a white-on-black neutral. In dark it follows the app accent instead, and
+   sits on the raised surface rather than the page ground. */
+:global(html[data-theme='dark']) .frozenPanel.frozenPanel {
+  --accent: inherit;
+  --accent-hover: inherit;
+  --accent-tint: inherit;
+  background: var(--bg-elevated);
+}
+:global(html[data-theme='dark']) .frozenBackdrop.frozenBackdrop {
+  background: var(--scrim-tint);
+}
+:global(html[data-theme='dark']) .frozenPanel button:focus-visible {
+  outline-color: var(--green);
+}

@@ -157,3 +157,43 @@
   color: #6b7280;
   background: color-mix(in srgb, #6b7280 16%, transparent);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The --color-* names are defined in dark (theme-dark/tokens.css); what is
+   left are the literal state hues, which are too dark to read on dark. */
+:global(html[data-theme='dark']) .banner {
+  background: var(--amber-bg);
+  border-color: var(--amber-border);
+}
+
+:global(html[data-theme='dark']) .view .pull {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+:global(html[data-theme='dark']) .badge[data-anchor-state='anchored'] {
+  color: var(--green);
+  background: var(--green-bg);
+}
+
+:global(html[data-theme='dark']) .badge[data-anchor-state='reanchored'] {
+  color: var(--amber);
+  background: var(--amber-bg);
+}
+
+:global(html[data-theme='dark']) .badge[data-anchor-state='stale'] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+:global(html[data-theme='dark']) .badge[data-anchor-state='lost'] {
+  color: var(--text-soft);
+  background: var(--bg-muted);
+}
+
+/* --color-code-bg and --color-surface share one value in dark, so the code
+   chip and the button hover need a visible step of their own. */
+:global(html[data-theme='dark']) .mono,
+:global(html[data-theme='dark']) .view button:hover:not(:disabled) {
+  background: var(--bg-muted);
+}

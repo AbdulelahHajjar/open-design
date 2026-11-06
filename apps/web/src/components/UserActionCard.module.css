@@ -328,3 +328,12 @@
   background: none;
   color: var(--amber);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The banded card's body is the page ground upstream, which in dark sits
+   below the pane instead of above it. Raise it, so the head and footer bands
+   stay a step darker than the body, as in light. The danger card keeps its
+   red ground. */
+:global(html[data-theme='dark']) .card:not([data-tone='danger']) {
+  background: var(--bg-elevated);
+}

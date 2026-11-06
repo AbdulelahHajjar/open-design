@@ -214,3 +214,14 @@
   color: var(--text-faint);
   font-size: 13px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The ink pill is meant to read as ink-dark in both themes, but its fixed
+   near-black is indistinguishable from the dark menu ground: lift it one step and give it
+   a green edge, with the palette's green label. */
+:global(html[data-theme='dark']) .chip.chipActive,
+:global(html[data-theme='dark']) .chip.chipActive:hover {
+  background: var(--bg-muted);
+  border-color: color-mix(in srgb, var(--brand-ink) 40%, var(--border));
+  color: var(--brand-ink);
+}

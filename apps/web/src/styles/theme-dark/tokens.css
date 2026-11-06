@@ -1,0 +1,236 @@
+/* Dark theme tokens, derived from the Ghostty palette (palette.css).
+
+   Selector: `:where(html)[data-theme='dark']`, specificity (0,1,0) on purpose.
+   - It beats upstream's legacy `[data-theme="dark"]` token blocks (also
+     0,1,0) because this sheet loads after them.
+   - It LOSES to upstream's accessibility fallbacks, which redefine materials
+     and veils on `html:root` (0,1,1) under `prefers-reduced-transparency` and
+     `@supports not (backdrop-filter…)`. Those fallbacks read the surface tokens
+     below, so reduced-transparency mode stays solid and correct in dark.
+
+   Contrast (WCAG) against the darkest raised surface, --bg-elevated #0f131a:
+   text-strong 16.9 · text 13.6 · text-muted 9.0 · text-soft 6.7 ·
+   text-faint 4.9 · accent 8.6 · green 12.0 · red 6.2 · amber 13.6.
+   Filled accent controls carry --accent-contrast (#05080d) at 9.3:1. */
+:where(html)[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* ── Surfaces: Ghostty background, stepping up toward palette 0 ────── */
+  --bg: var(--ghostty-bg);
+  --bg-app: var(--ghostty-bg);
+  --bg-panel: #0a0e14;
+  --bg-elevated: #0f131a;
+  --bg-subtle: var(--ghostty-0);
+  --bg-muted: #1d2229;
+  --bg-fill-tertiary: rgba(220, 220, 220, 0.04);
+  --bg-fill-secondary: rgba(220, 220, 220, 0.07);
+  --bg-fill: rgba(220, 220, 220, 0.11);
+  /* Floating glass sits on Ghostty palette 0, a step above the ground, so it
+     still reads as lifted once translucent. */
+  --glass-regular: rgba(21, 25, 30, 0.74);
+  --glass-edge-highlight: color-mix(in srgb, #dcdcdc 10%, transparent);
+  /* Ground behind authored content (design previews, thumbnails): the same
+     white the light theme puts there, so a design looks identical in both. */
+  --content-canvas: #ffffff;
+  /* The light theme's body ink, inherited by authored content rendered in a
+     shadow root (deck thumbnails) rather than an iframe. */
+  --content-ink: #494949;
+  --code-header-bg: #0f131a;
+  --code-body-bg: #080b10;
+
+  /* ── Borders ──────────────────────────────────────────────────────── */
+  /* Separation matched to light: soft ≈1.2:1 and base ≈1.35:1 on the ground. */
+  --border-soft: #1a1f26;
+  --border: #242a33;
+  --border-strong: #323942;
+  --border-selected: #4a515c;
+
+  /* ── Text: Ghostty foreground as body copy ───────────────────────── */
+  --text-strong: #f4f4f4;
+  --text: var(--ghostty-fg);
+  --text-muted: #b0b5bc;
+  --text-soft: #959ba4;
+  --text-faint: #7d838c;
+  --select-ink: #f4f4f4;
+
+  /* ── Accent: palette 12 (bright blue) ────────────────────────────── */
+  --accent: var(--ghostty-12);
+  --accent-contrast: var(--ghostty-bg);
+  --accent-strong: #c3c5f4;
+  --accent-hover: #b8baf1;
+  --accent-soft: color-mix(in srgb, var(--ghostty-12) 18%, var(--ghostty-bg));
+  --accent-tint: color-mix(in srgb, var(--ghostty-12) 9%, var(--ghostty-bg));
+  --selected: var(--ghostty-12);
+  --selected-soft: color-mix(in srgb, var(--ghostty-12) 16%, transparent);
+
+  /* ── Brand: bright green carries brand ink; the neon pairs stay ──── */
+  --brand-weak: color-mix(in srgb, var(--ghostty-2) 35%, var(--ghostty-bg));
+  --brand-soft: color-mix(in srgb, var(--ghostty-2) 14%, var(--ghostty-bg));
+  --brand-text: var(--ghostty-10);
+  --brand-ink: var(--ghostty-10);
+  --brand-surface: color-mix(in srgb, var(--ghostty-2) 14%, var(--ghostty-bg));
+  --tick-img: url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI5IiBmaWxsPSIjMDUwODBEIi8+PHBhdGggZD0iTTEyIDIyQzE3LjUyMjggMjIgMjIgMTcuNTIyOCAyMiAxMkMyMiA2LjQ3NzE1IDE3LjUyMjggMiAxMiAyQzYuNDc3MTUgMiAyIDYuNDc3MTUgMiAxMkMyIDE3LjUyMjggNi40NzcxNSAyMiAxMiAyMlpNMTcuNDU3MSA5LjQ1NzExTDExIDE1LjkxNDJMNi43OTI4OSAxMS43MDcxTDguMjA3MTEgMTAuMjkyOUwxMSAxMy4wODU4TDE2LjA0MjkgOC4wNDI4OUwxNy40NTcxIDkuNDU3MTFaIiBmaWxsPSIjODJFNDk4Ii8+PC9zdmc+");
+
+  /* ── Status: bright ANSI as ink, normal ANSI mixed into grounds ──── */
+  --green: var(--ghostty-10);
+  --green-bg: color-mix(in srgb, var(--ghostty-2) 14%, var(--ghostty-bg));
+  --green-border: color-mix(in srgb, var(--ghostty-2) 40%, #20252d);
+  --blue: var(--ghostty-12);
+  --blue-bg: color-mix(in srgb, var(--ghostty-4) 26%, var(--ghostty-bg));
+  --blue-border: color-mix(in srgb, var(--ghostty-12) 36%, #20252d);
+  /* Neutral, as upstream keeps it: purple is the plain "tag" hue. */
+  --purple: var(--ghostty-fg);
+  --purple-bg: var(--ghostty-0);
+  --purple-border: #2e343d;
+  --red: var(--ghostty-9);
+  --red-bg: color-mix(in srgb, var(--ghostty-1) 22%, var(--ghostty-bg));
+  --red-border: color-mix(in srgb, var(--ghostty-1) 55%, #20252d);
+  --amber: var(--ghostty-11);
+  --amber-bg: color-mix(in srgb, var(--ghostty-3) 16%, var(--ghostty-bg));
+  --amber-border: color-mix(in srgb, var(--ghostty-3) 40%, #20252d);
+
+  --tag-prototype-ink: var(--ghostty-12);
+  --tag-prototype-tint: color-mix(in srgb, var(--ghostty-4) 30%, var(--ghostty-bg));
+  --tag-live-artifact-ink: var(--ghostty-13);
+  --tag-live-artifact-tint: var(--ghostty-5);
+  --tag-web-clone-ink: var(--ghostty-14);
+  --tag-slide-ink: var(--ghostty-11);
+  --tag-slide-tint: var(--ghostty-3);
+  --tag-media-ink: var(--ghostty-10);
+
+  /* ── Elevation: shadows vanish on near-black, so each tier also draws a
+     faint foreground edge. ─────────────────────────────────────────── */
+  --shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(220, 220, 220, 0.04);
+  --shadow-md: 0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(220, 220, 220, 0.05);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.7), 0 8px 16px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(220, 220, 220, 0.06);
+
+  /* ── Materials (material.css) ────────────────────────────────────── */
+  --scrim-tint: rgba(5, 8, 13, 0.62);
+  --material-ultrathin: rgba(21, 25, 30, 0.5);
+  --material-thin: rgba(21, 25, 30, 0.64);
+  --material-regular: rgba(21, 25, 30, 0.76);
+  --material-thick: rgba(21, 25, 30, 0.88);
+  --glass-clear: rgba(5, 8, 13, 0.2);
+  --glass-clear-dim: rgba(0, 0, 0, 0.4);
+  --vibrancy-label: rgba(220, 220, 220, 0.94);
+  --vibrancy-label-secondary: rgba(220, 220, 220, 0.64);
+  --vibrancy-label-tertiary: rgba(220, 220, 220, 0.42);
+  --vibrancy-label-quaternary: rgba(220, 220, 220, 0.24);
+  --vibrancy-fill: rgba(220, 220, 220, 0.18);
+  --vibrancy-fill-secondary: rgba(220, 220, 220, 0.12);
+  --vibrancy-fill-tertiary: rgba(220, 220, 220, 0.06);
+  --material-separator: rgba(220, 220, 220, 0.12);
+  --glass-refract-ring-top: rgba(220, 220, 220, 0.22);
+  --glass-refract-ring-edge: rgba(220, 220, 220, 0.07);
+  --glass-refract-ring-bottom: rgba(220, 220, 220, 0.1);
+
+  /* ── Ground wash (app-wash.css): a faint ANSI aurora on the background */
+  --wash-base: var(--ghostty-bg);
+  --wash-blue: rgba(46, 67, 192, 0.12);
+  --wash-pink: rgba(178, 73, 184, 0.08);
+  --wash-peach: rgba(166, 69, 50, 0.06);
+  --wash-mist: rgba(89, 194, 197, 0.06);
+
+  /* ── Share surfaces (share-tokens.css). Upstream keeps these light-only;
+     here the roles invert: "ink" fills take the accent and "white" — used
+     both as text on ink and as card ground — becomes the raised surface, so
+     both roles stay legible. ─────────────────────────────────────── */
+  --share-ink: var(--ghostty-12);
+  --share-ink-hover: #b8baf1;
+  --share-ink-busy: color-mix(in srgb, var(--ghostty-12) 55%, var(--ghostty-bg));
+  --share-ink-dark-sm-hover: #2e343d;
+  --share-white: #0f131a;
+  --share-canvas: #0a0e14;
+  --share-surface-dark: #1d2229;
+  --share-toggle-on: var(--ghostty-12);
+  --share-track: #2e343d;
+  --share-update-fg: var(--ghostty-10);
+  --share-update-bg: color-mix(in srgb, var(--ghostty-2) 16%, var(--ghostty-bg));
+  --share-blue-bg: color-mix(in srgb, var(--ghostty-4) 24%, var(--ghostty-bg));
+  --share-blue-fg: var(--ghostty-12);
+  --share-blue-bg-hover: color-mix(in srgb, var(--ghostty-4) 32%, var(--ghostty-bg));
+  --share-blue-fg-hover: #c3c5f4;
+  --share-blue-bg-active: color-mix(in srgb, var(--ghostty-4) 40%, var(--ghostty-bg));
+  --share-blue-fg-active: #c3c5f4;
+  --share-red-bg: color-mix(in srgb, var(--ghostty-1) 20%, var(--ghostty-bg));
+  --share-red-fg: var(--ghostty-9);
+  --share-red-bg-hover: color-mix(in srgb, var(--ghostty-1) 28%, var(--ghostty-bg));
+  --share-red-fg-hover: #e09a95;
+  --share-red-bg-active: color-mix(in srgb, var(--ghostty-1) 36%, var(--ghostty-bg));
+  --share-red-fg-active: #e09a95;
+  --share-error: var(--ghostty-9);
+  --share-menu-border: 1px solid rgba(220, 220, 220, 0.08);
+  --share-menu-bg: #0f131a;
+  --share-menu-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 1px 4px rgba(0, 0, 0, 0.4);
+  --share-menu-row-color: var(--ghostty-fg);
+  --share-menu-row-hover-bg: #1d2229;
+  --share-menu-row-hover-color: #f4f4f4;
+  --share-panel-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --share-guide-shadow: 0 8px 28px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --share-text-strong: #f4f4f4;
+  --share-text-muted: #959ba4;
+  --share-text-faint: #7d838c;
+  --share-text-notice: #b0b5bc;
+  --share-text-dim: #959ba4;
+  --share-copied: var(--ghostty-10);
+  --share-published-border: #20252d;
+  --share-text-secondary: #b0b5bc;
+  --share-success: var(--ghostty-10);
+  --share-danger: var(--ghostty-9);
+  --share-focus: var(--ghostty-12);
+
+  /* ── Names the codebase reads but never defines. In light they fall back
+     to their (light) literal; in dark they get a real value. Names whose
+     light fallback is empty (so light paints nothing) stay undefined, and so
+     do shadcn-style names (--foreground, --muted, --background, --primary):
+     authored deck thumbnails render in a shadow root that inherits these, and
+     decks often read those names without defining them. ── */
+  --accent-on: var(--ghostty-bg);
+  --accent-text: var(--ghostty-bg);
+  --bg-hover: rgba(220, 220, 220, 0.06);
+  --bg-secondary: #0a0e14;
+  --border-subtle: #151a20;
+  --color-accent: var(--ghostty-12);
+  --color-border: #20252d;
+  --color-code-bg: #0f131a;
+  --color-muted: #959ba4;
+  --color-surface: #0f131a;
+  --color-text: var(--ghostty-fg);
+  --danger: var(--ghostty-9);
+  --danger-fg: var(--ghostty-9);
+  --danger-text: var(--ghostty-9);
+  --fg-1: var(--ghostty-fg);
+  --fg-2: #959ba4;
+  --ink: var(--ghostty-fg);
+  --ink-faint: #7d838c;
+  --kind-tint: #b0b5bc;
+  --line: #20252d;
+  --od-border: #20252d;
+  --panel: #0f131a;
+  --subtle: var(--ghostty-0);
+  --success: var(--ghostty-10);
+  --success-bg: color-mix(in srgb, var(--ghostty-2) 16%, var(--ghostty-bg));
+  --success-fg: var(--ghostty-10);
+  --success-text: var(--ghostty-10);
+  --surface: #0f131a;
+  --surface-1: #0a0e14;
+  --surface-2: var(--ghostty-0);
+  --surface-hover: #1d2229;
+  --surface-strong: rgba(220, 220, 220, 0.08);
+  --surface-subtle: rgba(220, 220, 220, 0.03);
+  --text-danger: var(--ghostty-9);
+  --text-error: var(--ghostty-9);
+  --text-primary: var(--ghostty-fg);
+  --text-secondary: #b0b5bc;
+  --text-default: var(--ghostty-fg);
+  --text-success: var(--ghostty-10);
+  --text-warning: var(--ghostty-11);
+  --warning: var(--ghostty-11);
+  --warning-border: color-mix(in srgb, var(--ghostty-3) 40%, transparent);
+  --warning-fg: var(--ghostty-11);
+  --warning-surface: color-mix(in srgb, var(--ghostty-3) 10%, transparent);
+  --warning-text: var(--ghostty-11);
+}

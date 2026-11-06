@@ -1,5 +1,7 @@
 import type { BrowserWindow } from "electron";
 
+import { withLightColorScheme } from "./export-color-scheme.js";
+
 // Everything needed to turn a live, animating page into ONE reproducible
 // frame. Shared by the long-image export (which freezes motion before it
 // scroll-stitches) and by the first-viewport thumbnail (which additionally
@@ -124,7 +126,9 @@ async function emulateReducedMotion(
     // Awaited: the override has to be live before the freeze script runs, or a
     // rAF loop that polls the media query gets one more unfrozen frame in.
     await target.sendCommand("Emulation.setEmulatedMedia", {
-      features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+      features: withLightColorScheme(window.webContents, [
+        { name: "prefers-reduced-motion", value: "reduce" },
+      ]),
     });
     return {
       emulated: true,

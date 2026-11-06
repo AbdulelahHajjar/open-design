@@ -172,3 +172,11 @@
   width: 14px;
   height: 14px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The play disc is the card's primary control, so in dark it takes the accent
+   like the app's other primaries; its glyph already paints in the dark
+   `--chat-bg`. The SVG's `fill` attribute yields to any stylesheet rule. */
+:global(html[data-theme='dark']) .play svg circle {
+  fill: var(--chat-accent);
+}

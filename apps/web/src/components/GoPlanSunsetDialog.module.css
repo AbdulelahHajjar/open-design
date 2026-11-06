@@ -231,3 +231,53 @@
     padding-top: 30px;
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The primary action is a `primary` Button, so styles/theme-dark/base.css
+   already gives it the accent fill; only the hard-coded light surfaces and
+   inks are remapped here. */
+:global(html[data-theme='dark']) .panel {
+  color: var(--text);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+}
+
+:global(html[data-theme='dark']) .panel .closeButton {
+  color: var(--text-muted);
+  background: var(--bg-fill-secondary);
+}
+
+:global(html[data-theme='dark']) .panel .closeButton:hover:not(:disabled) {
+  color: var(--text-strong);
+  background: var(--bg-fill);
+}
+
+:global(html[data-theme='dark']) .panel .closeButton:focus-visible,
+:global(html[data-theme='dark']) .action:focus-visible {
+  outline-color: color-mix(in srgb, var(--green) 45%, transparent);
+}
+
+:global(html[data-theme='dark']) .panel .title { color: var(--text-strong); }
+:global(html[data-theme='dark']) .subtitle { color: var(--text-muted); }
+:global(html[data-theme='dark']) .announcement { background: var(--green-bg); }
+:global(html[data-theme='dark']) .announcementIntro,
+:global(html[data-theme='dark']) .decisions li { color: var(--text); }
+
+:global(html[data-theme='dark']) .number {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+}
+
+:global(html[data-theme='dark']) .decisions li strong { color: var(--text-strong); }
+:global(html[data-theme='dark']) .closing { color: var(--text-soft); }
+
+:global(html[data-theme='dark']) .actions .secondaryAction {
+  color: var(--text);
+  background: var(--bg-muted);
+}
+
+:global(html[data-theme='dark']) .actions .secondaryAction:hover:not(:disabled) {
+  background: var(--border-strong);
+}
+
+:global(html[data-theme='dark']) .error { color: var(--red); }

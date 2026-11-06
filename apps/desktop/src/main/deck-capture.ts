@@ -8,6 +8,7 @@ import { BrowserWindow, nativeImage } from "electron";
 import type { DesktopRenderSlidesInput, DesktopRenderSlidesResult } from "@open-design/sidecar-proto";
 
 import { waitForPrintableContent } from "./pdf-export.js";
+import { attachDebuggerIfDetached, loadInLightColorScheme } from "./export-color-scheme.js";
 import { bgraBitmapHasPaint, FROZEN_MOTION_CSS } from "./static-capture.js";
 import { findRealTagEnd, findRealTagOffset, HTML_TAG_PATTERNS } from '@open-design/contracts/runtime/html-injection-points';
 
@@ -280,7 +281,8 @@ export async function renderDeckSlides(
 
   try {
     const doc = injectBaseHref(input.html, input.baseHref);
-    await loadArtifactDocument(window, `data:text/html;charset=utf-8,${encodeURIComponent(doc)}`);
+    const url = `data:text/html;charset=utf-8,${encodeURIComponent(doc)}`;
+    await loadInLightColorScheme(window, () => loadArtifactDocument(window, url));
     tLoad = Date.now();
     await waitForPrintableContent(window);
     tAssets = Date.now();
@@ -374,15 +376,18 @@ export async function renderDeckSlides(
     // (prepareDeckStage), so each slide is captured at its final state — never a
     // mid page-turn frame. Falls back to capturePage if the debugger is busy.
     const deckDbg = window.webContents.debugger;
+    // Attached here (and so detached here) unless the light color-scheme pin
+    // already holds the session, which CDP capture then reuses.
     let deckDbgAttached = false;
+    let deckDbgReady = false;
     try {
-      deckDbg.attach("1.3");
-      deckDbgAttached = true;
+      deckDbgAttached = attachDebuggerIfDetached(deckDbg);
       await deckDbg.sendCommand("Page.enable");
+      deckDbgReady = true;
     } catch {
-      // already attached / unavailable — captureDeckSlide falls back to capturePage
+      // unavailable — captureDeckSlide falls back to capturePage
     }
-    const dbg = deckDbgAttached ? deckDbg : null;
+    const dbg = deckDbgReady ? deckDbg : null;
     try {
       // Image export of a deck wants every slide stitched top-to-bottom into one
       // tall image (the "whole deck as one picture").
@@ -1570,16 +1575,19 @@ async function capturePage(
   const ramMaxOutH = Math.floor(PAGE_RAM_BUDGET_BYTES / (outW * 4));
 
   const dbg = window.webContents.debugger;
+  // `attached`: this call owns the session and detaches it. `usable`: CDP is
+  // available, including a session the light color-scheme pin already holds.
   let attached = false;
+  let usable = false;
   try {
-    dbg.attach("1.3");
-    attached = true;
+    attached = attachDebuggerIfDetached(dbg);
+    usable = true;
   } catch {
-    // already attached or unavailable — scroll-segment fallback below
+    // unavailable — scroll-segment fallback below
   }
 
   try {
-    if (attached) {
+    if (usable) {
       await dbg.sendCommand("Page.enable");
       // Measure the document height in CSS px directly (CDP contentSize is in
       // device px in this Electron, which would double-scale). Clip width to the

@@ -20,3 +20,32 @@
 }
 
 .card :global(.entry-local-mode-tip__title-icon) { width:20px;height:20px;min-width:20px;color:#205b16; }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The tip pins a near-white card with dark inks. The collapsed (≤1100px)
+   icon-only state stays transparent, so its rule is re-applied below. */
+:global(html[data-theme='dark']) .card:global(.entry-local-mode-tip) {
+  border-color: var(--border);
+  background: var(--bg-panel);
+}
+:global(html[data-theme='dark']) .card:hover,
+:global(html[data-theme='dark']) .card:focus-visible {
+  background: var(--bg-panel);
+}
+:global(html[data-theme='dark']) .card :global(.entry-local-mode-tip__title) {
+  color: var(--text-strong);
+}
+:global(html[data-theme='dark']) .card :global(.entry-local-mode-tip__pitch) p {
+  color: var(--text-muted);
+}
+:global(html[data-theme='dark']) .card:focus-visible :global(.entry-local-mode-tip__login-badge) {
+  outline-color: var(--brand-ink);
+}
+:global(html[data-theme='dark']) .card :global(.entry-local-mode-tip__title-icon) {
+  color: var(--brand-text);
+}
+@media (max-width: 1100px) {
+  :global(html[data-theme='dark']) .card:global(.entry-local-mode-tip):not(:global(.is-signing)) {
+    background: transparent;
+  }
+}

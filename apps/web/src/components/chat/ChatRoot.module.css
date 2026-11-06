@@ -378,3 +378,64 @@
 .root {
   display: contents;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The seam's dark values in the Ghostty palette. `html` out-ranks the upstream
+   dark scope above. Names that map straight to a global token are not
+   restated: upstream's dark scope already follows the theme for them. */
+:global(html[data-theme='dark']) .vars,
+:global(html[data-theme='dark']) .root {
+  /* Cards sit one step above the pane. Their edge is the regular border,
+     because the soft one disappears on near-black. */
+  --chat-bg: var(--bg-elevated);
+  --chat-confirm-surface: var(--bg-panel);
+  --chat-floating-card-bg: var(--bg-elevated);
+  --chat-floating-card-text: var(--text-strong);
+  --chat-border-soft: var(--border);
+
+  --chat-brand: var(--green);
+  --chat-brand-weak: var(--brand-weak);
+  --chat-pick: var(--green);
+
+  /* Inks upstream pins to one neutral gray in both themes. The plan's
+     current-step ink and the tool-row ink are set in
+     `styles/theme-dark/chat.css`: upstream's tests allow exactly two
+     declarations of each in this file. */
+  --chat-anim-ink: var(--text);
+  --chat-stream-ink: var(--text-soft);
+
+  /* The design-system status card shares the user bubble's ground and ink
+     (`styles/theme-dark/chat.css`). */
+  --chat-status-card-surface: var(--bg-muted);
+  --chat-status-card-ink: var(--text-strong);
+  --chat-status-card-icon-plate: var(--border-strong);
+  --chat-status-card-detail-ink: var(--text-muted);
+
+  /* Selection bar and quote pop-over: dark glass with a light hairline. */
+  --chat-overlay-glass: color-mix(in srgb, var(--bg-muted) 92%, transparent);
+  --chat-overlay-glass-text: var(--text-strong);
+  --chat-overlay-glass-edge: color-mix(in srgb, var(--text) 14%, transparent);
+
+  /* Status-line sweep: the bright ANSI colors. */
+  --chat-dia-1: var(--ghostty-13);
+  --chat-dia-2: var(--ghostty-9);
+  --chat-dia-3: var(--ghostty-11);
+  --chat-dia-4: var(--ghostty-14);
+  --chat-dia-5: var(--ghostty-12);
+
+  /* The neon brand mark is theme-independent: the same pair as the send
+     button. The remaining orb stops move to the Ghostty brights, and the
+     balance amount, which has no orange in the palette, takes the warning
+     yellow. */
+  --chat-upgrade-ink: var(--send-ground);
+  --chat-upgrade-amount: var(--amber);
+  --chat-orb-c1: var(--send-ground);
+  --chat-orb-c2: var(--ghostty-14);
+  --chat-orb-c3: var(--send-ink);
+  --chat-orb-c5: var(--ghostty-15);
+  --chat-orb-bg: var(--send-ink);
+
+  /* Ground under the banner illustration, seen only until the image decodes:
+     a deep blue, as in light. */
+  --chat-banner-ground: var(--blue-bg);
+}

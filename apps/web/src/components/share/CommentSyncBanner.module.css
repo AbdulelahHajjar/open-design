@@ -53,3 +53,15 @@
  .retrySpacing { margin-block-start: 4px; }
  /* .retry/.retryError moved into the shared `ShareButton`'s `soft`/
     `soft-error` variants (2026 refactor: item 1) — ShareButton.module.css. */
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The progress chip is an ink-filled block whose label and spinner read
+   --share-white, which is the dark card ground in dark. */
+:global(html[data-theme='dark']) .backfillProgress {
+  background: var(--bg-muted);
+  color: var(--text-strong);
+}
+:global(html[data-theme='dark']) .spinner {
+  border-color: color-mix(in srgb, var(--text-strong) 45%, transparent);
+  border-top-color: var(--text-strong);
+}

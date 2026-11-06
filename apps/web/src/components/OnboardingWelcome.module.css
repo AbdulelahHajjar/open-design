@@ -163,3 +163,16 @@
 }
 
 .welcome :global(.onboarding-cloud__footer .lang-menu-wrap) { align-self: flex-start; position: relative; inset: auto; width: fit-content; margin: 0; }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The sign-in button pins an ink fill with white ink, including disabled; it
+   takes the accent like the shared `.onboarding-cloud__primary`. The credits
+   ribbon's brand mix sits too close to its green ink. */
+:global(html[data-theme='dark']) .signInAction :global(.onboarding-cloud__primary),
+:global(html[data-theme='dark']) .signInAction :global(.onboarding-cloud__primary:disabled) {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+:global(html[data-theme='dark']) .credits.credits {
+  background: var(--brand-weak);
+}

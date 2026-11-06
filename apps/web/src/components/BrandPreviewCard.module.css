@@ -1807,3 +1807,23 @@
     transform: rotate(360deg);
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Brand logos are authored assets, and most are drawn dark for a light page:
+   on the dark ground they vanish. Every surface that shows one keeps the
+   light ground the light theme gives it. Monogram fallbacks (no image) stay
+   on the theme ground. */
+:global(html[data-theme='dark']) .cover:has(.coverLogo),
+:global(html[data-theme='dark']) .previewHeadLogo:has(.previewHeadLogoImage),
+:global(html[data-theme='dark']) .logoStage,
+:global(html[data-theme='dark']) .logoThumb {
+  background: var(--content-canvas);
+}
+/* Showcase cover hover: a light veil barely shows over the light preview, so
+   it dims instead (as the dark veil does in light). */
+:global(html[data-theme='dark']) .coverPreviewBtn {
+  background: color-mix(in srgb, var(--bg) 30%, transparent);
+}
+:global(html[data-theme='dark']) .coverPreviewPill {
+  box-shadow: var(--shadow-md);
+}

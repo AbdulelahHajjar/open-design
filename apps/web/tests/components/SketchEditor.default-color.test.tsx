@@ -66,12 +66,12 @@ describe('SketchEditor default color', () => {
     vi.restoreAllMocks();
   });
 
-  it('starts with a light pen color under the dark theme', () => {
+  it('keeps the dark ink under the dark theme, which Excalidraw renders inverted', () => {
     document.documentElement.setAttribute('data-theme', 'dark');
 
     renderEditor();
 
-    expect(document.querySelector('[data-testid="excalidraw"]')?.getAttribute('data-stroke')).toBe('#ffffff');
+    expect(document.querySelector('[data-testid="excalidraw"]')?.getAttribute('data-stroke')).toBe('#1c1b1a');
   });
 
   it('keeps the existing default pen color under the light theme', () => {

@@ -599,3 +599,8 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+:global(html[data-theme='dark']) .extractPill {
+  color: var(--accent-contrast);
+}

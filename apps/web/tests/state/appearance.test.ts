@@ -37,7 +37,7 @@ describe('applyAppearanceToDocument', () => {
     document.documentElement.style.removeProperty('--accent-hover');
   });
 
-  it('applies the forced light theme and accent variables to the root element', () => {
+  it('applies the resolved theme and accent variables to the root element', () => {
     applyAppearanceToDocument({ accentColor: '#4F46E5' });
 
     expect(document.documentElement.getAttribute('data-theme')).toBe('light');
@@ -58,7 +58,7 @@ describe('applyAppearanceToDocument', () => {
     document.documentElement.style.removeProperty('--bg-app');
   });
 
-  it('applies accent variables while forcing a stale dark theme back to light', () => {
+  it('re-stamps a stale data-theme from the preference (light on a light OS) and applies the accent', () => {
     document.documentElement.setAttribute('data-theme', 'dark');
 
     applyAppearanceToDocument({ accentColor: '#10B981' });

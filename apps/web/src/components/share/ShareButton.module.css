@@ -147,3 +147,21 @@ button.darkSm {
   color: var(--share-white);
 }
 button.darkSm:hover:not(:disabled) { background: var(--share-ink-dark-sm-hover); }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Busy fills are a dimmed accent, too dark for the dark ink that
+   --share-white supplies in dark: they carry light ink instead. */
+:global(html[data-theme='dark']) button.primary[aria-busy="true"]:disabled,
+:global(html[data-theme='dark']) button.primary.transparentBusy[aria-busy="true"]:disabled,
+:global(html[data-theme='dark']) button.primary:global(.is-signing) {
+  color: var(--text-strong);
+}
+/* dark-sm is the guide's call to action. Its light fill is ink-black, which in
+   dark is the same near-black as its --share-white label. */
+:global(html[data-theme='dark']) button.darkSm {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+:global(html[data-theme='dark']) button.darkSm:hover:not(:disabled) {
+  background: var(--accent-hover);
+}

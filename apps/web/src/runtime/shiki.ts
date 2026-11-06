@@ -1,4 +1,5 @@
 import type { HighlighterGeneric } from 'shiki';
+import { GHOSTTY_DARK_SHIKI_THEME_NAME, ghosttyDarkShikiTheme } from './shiki-ghostty-theme';
 
 let highlighterPromise: Promise<HighlighterGeneric<any, any>> | null = null;
 
@@ -7,15 +8,19 @@ const CACHE_MAX = 128;
 
 function getHighlighter(): Promise<HighlighterGeneric<any, any>> {
   if (!highlighterPromise) {
-    highlighterPromise = import('shiki/bundle/web').then(({ createHighlighter }) =>
+    highlighterPromise = import('shiki/bundle/web').then(({ bundledLanguages, createHighlighter }) =>
       createHighlighter({
-        themes: ['github-light-default', 'github-dark-default'],
+        themes: ['github-light-default', ghosttyDarkShikiTheme],
+        // The web bundle lacks some of these (rust, go, swift, ruby, diff,
+        // toml, dockerfile), and one unknown language makes createHighlighter
+        // reject, which disables highlighting for every language. Load only
+        // the ones the bundle has; the rest render as plain code.
         langs: [
           'javascript', 'typescript', 'tsx', 'jsx', 'html', 'css', 'json',
           'python', 'bash', 'shell', 'markdown', 'yaml', 'sql', 'rust',
           'go', 'java', 'c', 'cpp', 'swift', 'ruby', 'php', 'diff',
           'toml', 'xml', 'graphql', 'dockerfile',
-        ],
+        ].filter((lang) => lang in bundledLanguages),
       }),
     );
   }
@@ -44,7 +49,7 @@ export async function highlightCode(code: string, lang: string): Promise<string>
 
   const html = highlighter.codeToHtml(code, {
     lang,
-    theme: dark ? 'github-dark-default' : 'github-light-default',
+    theme: dark ? GHOSTTY_DARK_SHIKI_THEME_NAME : 'github-light-default',
   });
 
   if (cache.size >= CACHE_MAX) {

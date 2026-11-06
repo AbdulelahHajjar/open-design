@@ -31,6 +31,8 @@ export type DeckThumbnailFallbackReason =
   | 'no-slides'
   | 'no-styles'
   | 'viewport-media-query'
+  | 'color-scheme-media-query'
+  | 'inherited-custom-property'
   | 'external-stylesheet';
 
 /** One reconstructed wrapper element between the shadow root and the slide. */
@@ -170,6 +172,16 @@ export function parseDeckThumbnails(html: string, baseHref?: string): ParsedDeck
   // these decks on the isolated iframe fallback, whose viewport is explicitly
   // matched to the live preview by DeckThumbnailRail.
   if (hasViewportMediaQuery(rawStyle)) return unrenderable('viewport-media-query');
+  // `prefers-color-scheme` in a shadow root follows the Open Design window,
+  // which goes dark with the app theme, while the preview iframe is pinned to
+  // the light scheme. Rendering such a deck in the shadow root would show its
+  // dark branch in the rail and its light branch in the preview.
+  if (hasColorSchemeMediaQuery(rawStyle)) return unrenderable('color-scheme-media-query');
+  // A shadow root inherits the Open Design window's custom properties, which
+  // change with the app theme, while the preview iframe inherits none. A deck
+  // that reads a custom property it never defines would take the app's value
+  // in the rail and its own fallback in the preview.
+  if (readsUndefinedCustomProperty(rawStyle, doc)) return unrenderable('inherited-custom-property');
 
   const designSize = resolveDesignSize(doc, rawStyle);
 
@@ -209,6 +221,29 @@ const VIEWPORT_MEDIA_FEATURE_PATTERNS = [
   /\b(?:width|height|aspect-ratio)\b\s*(?:[<>]=?|=)/i,
   /(?:[<>]=?|=)\s*\b(?:width|height|aspect-ratio)\b/i,
 ] as const;
+
+function readsUndefinedCustomProperty(css: string, doc: Document): boolean {
+  const defined = new Set<string>();
+  const collectDefinitions = (text: string): void => {
+    for (const match of text.matchAll(/(--[\w-]+)\s*:/g)) defined.add(match[1]!);
+  };
+  collectDefinitions(css);
+  for (const match of css.matchAll(/@property\s+(--[\w-]+)/g)) defined.add(match[1]!);
+  for (const element of Array.from(doc.querySelectorAll('[style]'))) {
+    collectDefinitions(element.getAttribute('style') ?? '');
+  }
+  for (const match of css.matchAll(/var\(\s*(--[\w-]+)/g)) {
+    if (!defined.has(match[1]!)) return true;
+  }
+  return false;
+}
+
+function hasColorSchemeMediaQuery(css: string): boolean {
+  for (const match of css.matchAll(MEDIA_QUERY_PRELUDE_RE)) {
+    if (/\bprefers-color-scheme\b/i.test(match[1] ?? '')) return true;
+  }
+  return false;
+}
 
 function hasViewportMediaQuery(css: string): boolean {
   for (const match of css.matchAll(MEDIA_QUERY_PRELUDE_RE)) {

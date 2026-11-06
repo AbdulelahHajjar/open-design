@@ -1,0 +1,67 @@
+/* Dark theme: authored content stays as authored; bundled UI art adapts.
+
+   Designs, previews, thumbnails, plugin surfaces and user images are the
+   user's work, not app chrome. Every iframe in the app renders one of them,
+   so each is pinned to the light color scheme — per CSS Color Adjust, the
+   embedding element's used color-scheme is the embedded document's preferred
+   scheme, so a design's own `prefers-color-scheme: dark` branch stays off —
+   and sits on the same white ground the light theme gives it. Images get the
+   same pin for SVGs with color-scheme media queries. */
+html[data-theme='dark'] :is(iframe, object, embed, img) {
+  color-scheme: light;
+}
+html[data-theme='dark'] iframe {
+  background-color: var(--content-canvas);
+}
+/* Upstream rules that give a preview iframe the theme ground by class, and so
+   outrank the rule above (the design-card thumbnail is in workspace.css). */
+html[data-theme='dark'] .project-ds-picker-fullscreen-iframe {
+  background-color: var(--content-canvas);
+}
+/* The frames that hold a design preview (viewer/core.css, viewer/memory.css)
+   paint the theme ground; a design with a transparent body must still land on
+   white. */
+html[data-theme='dark'] :is(.preview-frame-clip, .comment-frame-clip, .manual-edit-canvas) {
+  background: var(--content-canvas);
+}
+html[data-theme='dark']
+  .preview-viewport:not(.preview-viewport-desktop)
+  :is(.preview-frame-clip, .manual-edit-canvas) {
+  background: var(--content-canvas);
+}
+
+/* Bundled single-colour black marks (UI art, matched by exact public path so
+   an authored image that happens to share a file name is never touched). */
+html[data-theme='dark']
+  :is(
+    img[src='/model-icons/openai.svg'],
+    img[src='/model-icons/x.svg'],
+    img[src='/model-icons/suno.svg'],
+    img[src='/model-icons/elevenlabs.svg'],
+    img[src='/model-icons/flux.svg'],
+    img[src='/agent-icons/glm.svg'],
+    img[src='/logo.svg'],
+    img[src='/auth-symbol.svg']
+  ) {
+  filter: invert(1);
+}
+/* Two-tone marks: inverting lightness while rotating hue back keeps their
+   colour family (qoder's green, the empty-state gradient). */
+html[data-theme='dark']
+  :is(img[src='/agent-icons/qoder.svg'], img[src='/community-empty-mark.svg']) {
+  filter: invert(1) hue-rotate(180deg);
+}
+/* Near-black app-icon tiles: keep the brand tile, give it an edge. */
+html[data-theme='dark'] :is(img[src='/agent-icons/pi.svg'], img[src='/agent-icons/amr.svg']) {
+  filter: drop-shadow(0 0 1px var(--border-selected));
+}
+
+/* Deck thumbnails render the authored slide in a shadow root, which inherits
+   `color` and `color-scheme` from the app. Pin both to what the light theme
+   hands it. Decks that read `prefers-color-scheme` or a custom property they
+   never define take the iframe path instead, since custom properties inherit
+   across the shadow boundary (runtime/deck-thumbnail-parser.ts). */
+html[data-theme='dark'] .deck-thumbnail-shadow-host {
+  color-scheme: light;
+  color: var(--content-ink);
+}

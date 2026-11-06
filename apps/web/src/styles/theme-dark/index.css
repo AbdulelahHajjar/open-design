@@ -1,0 +1,11 @@
+/* Dark theme overlay — imported once, last, from apps/web/app/layout.tsx.
+   Architecture, rules, and the after-upstream-sync runbook: README.md. */
+@import './palette.css';
+@import './tokens.css';
+@import './base.css';
+@import './shell-home.css';
+@import './workspace.css';
+@import './viewer.css';
+@import './chat.css';
+@import './components.css';
+@import './content.css';

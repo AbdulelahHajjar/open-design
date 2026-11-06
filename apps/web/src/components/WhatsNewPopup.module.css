@@ -87,3 +87,19 @@
 .cta.cta {
   color: var(--brand);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The shared primary fill is the light accent in dark, under which the brand
+   green label disappears. Like the app's other ink-pill CTAs with a green
+   label, it becomes a raised dark pill with a green edge and label. */
+:global(html[data-theme='dark']) button.cta.cta {
+  background: var(--bg-muted);
+  border-color: color-mix(in srgb, var(--brand-ink) 40%, var(--border));
+  color: var(--brand-ink);
+}
+:global(html[data-theme='dark']) button.cta.cta:hover:not(:disabled),
+:global(html[data-theme='dark']) button.cta.cta:active:not(:disabled) {
+  background: color-mix(in srgb, var(--brand-ink) 12%, var(--bg-muted));
+  border-color: color-mix(in srgb, var(--brand-ink) 60%, var(--border));
+  color: var(--brand-ink);
+}

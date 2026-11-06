@@ -1,13 +1,11 @@
 // @vitest-environment jsdom
 //
-// Product removed the theme setting outright: the workspace surfaces have no
-// dark tokens, so offering dark mode only produced a broken-looking app. Two
-// surfaces used to write `config.theme` — the Settings → General appearance
-// segmented control and the onboarding welcome page's sun/moon toggle. These
-// specs pin both as gone, so a later refactor cannot quietly reintroduce a
-// path back into dark mode.
+// The theme is a System / Light / Dark preference in Settings → General. It
+// applies and persists the moment it is picked (no Save step), outside the
+// Settings draft. The onboarding welcome page's old sun/moon toggle stays
+// removed: Settings is the one place the theme is chosen.
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EntryShell } from '../../src/components/EntryShell';
@@ -60,7 +58,7 @@ beforeEach(() => {
   analyticsMocks.track.mockReset();
 });
 
-describe('Settings → General (theme setting removed)', () => {
+describe('Settings → General appearance', () => {
   function renderGeneralSettings() {
     return render(
       <I18nProvider initial="en">
@@ -80,26 +78,40 @@ describe('Settings → General (theme setting removed)', () => {
     );
   }
 
-  it('renders no appearance group', () => {
-    renderGeneralSettings();
-
-    expect(screen.queryByRole('group', { name: 'Appearance' })).toBeNull();
+  afterEach(() => {
+    window.localStorage.removeItem('open-design:theme');
+    document.documentElement.removeAttribute('data-theme');
   });
 
-  it('renders no System / Light / Dark theme buttons', () => {
+  it('offers System, Light and Dark with System selected by default', () => {
     renderGeneralSettings();
 
+    const group = screen.getByRole('group', { name: 'Appearance' });
     for (const label of THEME_CONTROL_LABELS) {
-      expect(screen.queryByRole('button', { name: label })).toBeNull();
+      expect(within(group).getByRole('button', { name: label })).toBeTruthy();
     }
+    expect(within(group).getByRole('button', { name: 'System' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('applies and persists a choice immediately', () => {
+    renderGeneralSettings();
+    const group = screen.getByRole('group', { name: 'Appearance' });
+
+    fireEvent.click(within(group).getByRole('button', { name: 'Dark' }));
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(window.localStorage.getItem('open-design:theme')).toBe('dark');
+    expect(within(group).getByRole('button', { name: 'Dark' }).getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(within(group).getByRole('button', { name: 'Light' }));
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    expect(window.localStorage.getItem('open-design:theme')).toBe('light');
   });
 
   it('keeps the neighbouring General settings intact', () => {
     renderGeneralSettings();
 
-    // The language select and the system-preferences block share the General
-    // page with the removed appearance control; deleting the theme picker must
-    // not take them along.
     expect(screen.getByRole('combobox', { name: 'Language' })).toBeTruthy();
   });
 });

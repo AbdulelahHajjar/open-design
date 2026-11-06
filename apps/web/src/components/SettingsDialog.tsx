@@ -67,6 +67,7 @@ import {
 } from '../utils/visibleAgents';
 import { ExportDiagnosticsRow } from './ExportDiagnosticsButton';
 import { Icon } from './Icon';
+import { AppearanceThemeField } from './settings/AppearanceThemeField';
 import { LabsSection } from './LabsSection';
 import { LABS_EXPERIMENTS } from './labs-experiments';
 import { defaultAgentModelId, effectiveAgentModelChoice } from './agentModelSelection';
@@ -5854,6 +5855,10 @@ export function SettingsDialog({
                     <Icon name="chevron-down" size={14} />
                   </label>
                 </div>
+              </div>
+
+              <div className="settings-general-block">
+                <AppearanceThemeField />
               </div>
 
               <div className="settings-general-block">

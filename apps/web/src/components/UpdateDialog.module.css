@@ -223,3 +223,28 @@
     animation: none;
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The dialog is a modal: the raised surface, not the recessed panel ground. */
+:global(html[data-theme='dark']) .dialog {
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+}
+/* Warning and danger used dark orange / brick literals tuned for a light
+   panel; they move onto the palette's amber and red. */
+:global(html[data-theme='dark']) .iconWarning {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 13%, var(--bg-subtle));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 22%, transparent);
+}
+:global(html[data-theme='dark']) .primaryButton {
+  color: var(--accent-contrast);
+}
+:global(html[data-theme='dark']) .dangerButton {
+  border-color: color-mix(in srgb, var(--red) 38%, var(--border));
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 8%, var(--bg-panel));
+}
+:global(html[data-theme='dark']) .dangerButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--red) 13%, var(--bg-panel));
+}

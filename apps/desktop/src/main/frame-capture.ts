@@ -13,6 +13,7 @@ import {
 } from "@open-design/contracts/runtime/html-injection-points";
 
 import { loadArtifactDocument } from "./deck-capture.js";
+import { attachDebuggerIfDetached, loadInLightColorScheme } from "./export-color-scheme.js";
 import { waitForPrintableContent } from "./pdf-export.js";
 
 const DEFAULT_FRAME_RATE = 30;
@@ -138,10 +139,11 @@ export async function renderDeterministicFrames(
       writeFile(documentPath, injectBaseHref(input.html, input.baseHref), "utf8"),
       { stage: "write-document" },
     );
-    await deadline.wait(loadArtifactDocument(window, pathToFileURL(documentPath).href), {
-      stage: "load-document",
-      timeoutMs: FRAME_CAPTURE_SETUP_TIMEOUT_MS,
-    });
+    const documentUrl = pathToFileURL(documentPath).href;
+    await deadline.wait(
+      loadInLightColorScheme(window, () => loadArtifactDocument(window, documentUrl)),
+      { stage: "load-document", timeoutMs: FRAME_CAPTURE_SETUP_TIMEOUT_MS },
+    );
     await deadline.wait(waitForPrintableContent(window), {
       stage: "wait-for-printable-content",
       timeoutMs: FRAME_CAPTURE_SETUP_TIMEOUT_MS,
@@ -196,8 +198,7 @@ export async function renderDeterministicFrames(
     }
 
     const dbg = window.webContents.debugger;
-    dbg.attach("1.3");
-    debuggerAttached = true;
+    debuggerAttached = attachDebuggerIfDetached(dbg);
     await deadline.wait(dbg.sendCommand("Page.enable"), { stage: "attach-debugger" });
     await deadline.wait(
       dbg.sendCommand("Emulation.setDeviceMetricsOverride", {

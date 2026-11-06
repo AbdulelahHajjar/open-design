@@ -379,3 +379,22 @@
     transition: none;
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Ground behind the illustration while it loads: a dark accent tint instead
+   of a light accent/ink mix. */
+:global(html[data-theme='dark']) .visual {
+  background: color-mix(in srgb, var(--accent) 24%, var(--bg-muted));
+}
+/* The CTA takes the accent with dark ink; the hover rule above would put white
+   ink on the light accent fill. */
+:global(html[data-theme='dark']) .panel .cta {
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  background: var(--accent);
+}
+:global(html[data-theme='dark']) .panel .cta:hover:not(:disabled) {
+  color: var(--accent-contrast);
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}

@@ -347,3 +347,39 @@
   background: var(--terminal-button-bg-hover);
   border-color: var(--terminal-button-border-hover);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The terminal wears the Ghostty theme verbatim: background, foreground,
+   cursor, selection and all 16 ANSI slots. */
+:global(html[data-theme='dark']) .root {
+  --terminal-bg: var(--ghostty-bg);
+  --terminal-fg: var(--ghostty-fg);
+  --terminal-muted-fg: color-mix(in srgb, var(--ghostty-fg) 70%, transparent);
+  --terminal-cursor: var(--ghostty-cursor);
+  --terminal-cursor-accent: var(--ghostty-cursor-text);
+  --terminal-selection-bg: var(--ghostty-selection-bg);
+  --terminal-selection-fg: var(--ghostty-selection-fg);
+  --terminal-selection-inactive-bg: var(--bg-fill);
+  --terminal-banner-bg: var(--bg-fill-tertiary);
+  --terminal-banner-border: var(--border);
+  --terminal-button-bg: var(--bg-fill-secondary);
+  --terminal-button-bg-hover: var(--bg-fill);
+  --terminal-button-border: var(--border-strong);
+  --terminal-button-border-hover: var(--border-selected);
+  --terminal-ansi-black: var(--ghostty-0);
+  --terminal-ansi-red: var(--ghostty-1);
+  --terminal-ansi-green: var(--ghostty-2);
+  --terminal-ansi-yellow: var(--ghostty-3);
+  --terminal-ansi-blue: var(--ghostty-4);
+  --terminal-ansi-magenta: var(--ghostty-5);
+  --terminal-ansi-cyan: var(--ghostty-6);
+  --terminal-ansi-white: var(--ghostty-7);
+  --terminal-ansi-bright-black: var(--ghostty-8);
+  --terminal-ansi-bright-red: var(--ghostty-9);
+  --terminal-ansi-bright-green: var(--ghostty-10);
+  --terminal-ansi-bright-yellow: var(--ghostty-11);
+  --terminal-ansi-bright-blue: var(--ghostty-12);
+  --terminal-ansi-bright-magenta: var(--ghostty-13);
+  --terminal-ansi-bright-cyan: var(--ghostty-14);
+  --terminal-ansi-bright-white: var(--ghostty-15);
+}

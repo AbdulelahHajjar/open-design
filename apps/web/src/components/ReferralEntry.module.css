@@ -8,3 +8,22 @@
 :global(.entry-nav-rail__group) > .slot { margin-top: auto; margin-bottom: 8px; translate: 0 -4px; }
 :global(.entry-nav-rail__group):has(> .slot) :global(.entry-nav-rail__account-dock) { margin-top: 0; }
 @media (prefers-reduced-motion: reduce) { .art { background-image: url('/images/referral-entry-still.png'); } }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The card art is an opaque raster on a near-white ground, so the card cannot
+   simply darken around it. Inverting lightness and rotating the hue back turns
+   the ground near-black (matching --bg) and keeps the keycap green. */
+:global(html[data-theme='dark']) .card {
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--border-soft);
+  color: var(--text-strong);
+}
+:global(html[data-theme='dark']) .card:focus-visible {
+  outline-color: var(--brand-ink);
+}
+:global(html[data-theme='dark']) .art {
+  filter: invert(1) hue-rotate(180deg);
+}
+:global(html[data-theme='dark']) .copy span {
+  color: var(--text-muted);
+}

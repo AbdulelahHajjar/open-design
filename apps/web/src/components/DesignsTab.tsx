@@ -1392,9 +1392,14 @@ function projectCover(
 	}
 	const hue = h % 360;
 	const hue2 = (hue + 38) % 360;
-	const style: CSSProperties = {
+	const style = {
 		background: `radial-gradient(circle at 30% 28%, hsl(${hue} 70% 78% / 0.55), transparent 42%), linear-gradient(135deg, hsl(${hue} 65% 88%), hsl(${hue2} 70% 90%))`,
-	};
+		// The same three colors as custom properties, so the dark theme can
+		// re-tint the placeholder (styles/theme-dark/shell-home.css).
+		"--cover-glow": `hsl(${hue} 70% 78% / 0.55)`,
+		"--cover-tint": `hsl(${hue} 65% 88%)`,
+		"--cover-tint-2": `hsl(${hue2} 70% 90%)`,
+	} as CSSProperties;
 	const trimmed = project.name.trim();
 	const initial = (trimmed ? Array.from(trimmed)[0]! : "?").toUpperCase();
 	const meta = project.metadata;

@@ -338,3 +338,29 @@
 @media (prefers-reduced-motion: reduce) {
   .optOut { animation: none; }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Tooltip: the inverted near-white bubble becomes a raised dark one. */
+:global(html[data-theme='dark']) .tooltip {
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border-strong), var(--shadow-lg);
+}
+/* Switch knob: readable on the dark off-track and on the light brand-green
+   on-track (the light knob had no contrast there). */
+:global(html[data-theme='dark']) .switchKnob {
+  background: var(--text-muted);
+  box-shadow: var(--shadow-xs);
+}
+:global(html[data-theme='dark']) .switchOn .switchKnob {
+  background: var(--accent-contrast);
+}
+/* Opt-out submit: the inverted light fill becomes the accent primary. */
+:global(html[data-theme='dark']) .optOutSubmit {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+:global(html[data-theme='dark']) .optOutSubmit:disabled {
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}

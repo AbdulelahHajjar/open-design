@@ -1,0 +1,56 @@
+/* Dark theme: document-wide behaviour that no single component owns. */
+
+/* Ghostty selection and cursor. */
+html[data-theme='dark'] ::selection {
+  background: var(--ghostty-selection-bg);
+  color: var(--ghostty-selection-fg);
+}
+html[data-theme='dark'] :is(input, textarea, [contenteditable='true'], [contenteditable='']) {
+  caret-color: var(--ghostty-cursor);
+}
+
+/* Primary controls take the accent, with dark ink on the fill. Upstream paints
+   them as an inverted neutral (--text-strong ground, --bg ink) and hard-codes
+   a #353535 hover, which is dark-on-dark here. Covers both primitive sheets:
+   `styles/primitives.css` and `packages/components/src/styles.css`. */
+html[data-theme='dark'] button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+html[data-theme='dark'] button.primary:active:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+html[data-theme='dark'] button.primary:disabled {
+  background: var(--bg-muted);
+  border-color: var(--bg-muted);
+  color: var(--text-faint);
+}
+
+/* `packages/components` entry-sidebar focus halo is a fixed near-black rgba
+   that disappears on a dark ground. */
+html[data-theme='dark'] .entry-side :is(input, textarea, select):focus {
+  border-color: var(--text);
+  box-shadow: 0 0 0 3px var(--bg-fill-secondary);
+}
+
+/* Desktop shell on macOS: the window glass shows through a 20% scrim of the
+   ground. Dark glass under a thin scrim reads as mid-grey, not as the Ghostty
+   background, so the dark scrim is much denser. Scoped to the same conditions
+   under which upstream's reduced-transparency and no-backdrop fallbacks are
+   inactive, so those keep turning the wash off. */
+@media (prefers-reduced-transparency: no-preference) {
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    html[data-theme='dark']:has(.workspace-shell--desktop[data-host-platform='darwin']) {
+      --app-wash: linear-gradient(
+        color-mix(in srgb, var(--wash-base) 78%, transparent),
+        color-mix(in srgb, var(--wash-base) 78%, transparent)
+      );
+    }
+  }
+}

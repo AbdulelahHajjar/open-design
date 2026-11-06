@@ -492,3 +492,15 @@
     animation: none;
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The toast is an inverted neutral (near-white here); it becomes a raised
+   dark surface, and its button's --bg wash a foreground one. */
+:global(html[data-theme='dark']) .toast {
+  border-color: var(--border-strong);
+  background: var(--bg-muted);
+  color: var(--text-strong);
+}
+:global(html[data-theme='dark']) .toast button {
+  background: var(--bg-fill-secondary);
+}

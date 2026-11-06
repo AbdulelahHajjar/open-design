@@ -1765,3 +1765,10 @@
   background: color-mix(in srgb, var(--chat-text-muted) 30%, transparent);
   background-clip: padding-box;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The terminal block declares its own ink, out of the seam's reach; it takes
+   the soft text tier like the stream and tool inks. */
+:global(html[data-theme='dark']) .term {
+  --chat-terminal-ink: var(--chat-text-soft);
+}

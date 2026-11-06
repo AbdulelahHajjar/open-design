@@ -25,3 +25,18 @@ button.trigger:focus-visible { outline: 1px solid rgb(26,116,255); outline-offse
    Keep the dismissed row on Home (including recovery), and collapse only
    that empty row while the workspace switcher is expanded. */
 :global(.entry-shell:has([data-testid="workspace-switcher"][aria-expanded="true"])) .bannerSpace[data-dismissed="true"] { display: none; }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The banner's divider, deep-green link and grey close button are literals. */
+:global(html[data-theme='dark']) .banner .invite,
+:global(html[data-theme='dark']) .banner .invite:hover:not(:disabled) {
+  border-left-color: var(--border);
+  color: var(--brand-ink);
+}
+:global(html[data-theme='dark']) .banner .close {
+  color: var(--text-soft);
+}
+:global(html[data-theme='dark']) .banner .close:hover {
+  background: var(--bg-fill-tertiary);
+  color: var(--text);
+}

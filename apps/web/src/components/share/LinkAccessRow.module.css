@@ -83,3 +83,14 @@
 @media (prefers-reduced-motion: reduce) {
   .spinner { animation: none; }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Off: a light knob on a visible grey track, a step above the card. On: a dark
+   knob on the light accent track, like the app's other switches. The busy
+   spinner inside the knob takes the opposite ink so it never matches it. */
+:global(html[data-theme='dark']) .toggle { background: var(--border-selected); }
+:global(html[data-theme='dark']) .toggleOn { background: var(--share-toggle-on); }
+:global(html[data-theme='dark']) .toggleThumb { background: var(--text-strong); }
+:global(html[data-theme='dark']) .toggleOn .toggleThumb { background: var(--accent-contrast); }
+:global(html[data-theme='dark']) .spinner { color: var(--accent-contrast); }
+:global(html[data-theme='dark']) .toggleOn .spinner { color: var(--text-strong); }

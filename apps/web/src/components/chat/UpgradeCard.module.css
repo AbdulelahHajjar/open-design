@@ -219,3 +219,14 @@
   width: 20px;
   height: 20px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The card stays the dark one in both themes. In dark its neutral ground
+   moves onto the Ghostty surfaces, one step above the cards around it, and
+   the hairline follows. The neon button keeps its fill and still inks with the
+   card ground; the orange amount is unchanged. */
+:global(html[data-theme='dark']) .up {
+  --upgrade-card-bg: var(--chat-bg-subtle);
+  --upgrade-card-ink: var(--chat-text-strong);
+  --upgrade-card-hairline: var(--chat-border-strong);
+}

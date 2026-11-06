@@ -106,3 +106,16 @@
   font-size: 12px;
   font-weight: 500;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The label sits across both the fill and the track. With an accent fill and
+   a dark track no single ink reads on both, so the fill uses the dimmed accent
+   and the label (here and on the transparent busy button above it) is light. */
+:global(html[data-theme='dark']) .uploadProgress::-webkit-progress-value { background: var(--share-ink-busy); }
+:global(html[data-theme='dark']) .uploadProgress::-moz-progress-bar { background: var(--share-ink-busy); }
+:global(html[data-theme='dark']) .uploadProgress:indeterminate {
+  background: linear-gradient(90deg, var(--share-track) 0% 25%, var(--share-ink-busy) 50%, var(--share-track) 75% 100%);
+  background-size: 200% 100%;
+}
+:global(html[data-theme='dark']) .syncProgressFill { background: var(--share-ink-busy); }
+:global(html[data-theme='dark']) .syncProgressText { color: var(--text-strong); }

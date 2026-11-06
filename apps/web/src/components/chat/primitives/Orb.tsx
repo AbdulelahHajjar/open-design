@@ -21,6 +21,7 @@
  */
 import { useEffect, useRef, type ReactElement } from 'react';
 import { MODE_FRAMES, resolvePreset, type OrbState } from 'thinking-orbs/engine';
+import { useResolvedTheme } from '../../../state/theme-preference';
 
 export interface OrbProps {
   /** 上游的状态名。壳头用 connecting(进行中)/ composing(思考中),步骤用 solving */
@@ -60,6 +61,7 @@ function readInk(host: HTMLElement): [number, number, number] | null {
 
 export function Orb({ state, box = 20, label, className }: OrbProps): ReactElement {
   const hostRef = useRef<HTMLSpanElement>(null);
+  const theme = useResolvedTheme();
 
   useEffect(() => {
     const host = hostRef.current;
@@ -84,8 +86,9 @@ export function Orb({ state, box = 20, label, className }: OrbProps): ReactEleme
     const preset = resolvePreset(state, GEOMETRY_SIZE);
     const frameOf = MODE_FRAMES[preset.mode];
     const ink = readInk(host);
-    // 产品当前强制亮色(D20),但主题一旦解禁这里不用改:墨值到 alpha 的映射两边都成立
-    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // The ink-to-alpha mapping holds in both themes; the effect re-runs on a
+    // theme switch so the ink is re-read from the new tokens.
+    const dark = theme === 'dark';
 
     const paint = (t: number): void => {
       const frame = frameOf(GEOMETRY_SIZE, t, preset.opts);
@@ -154,7 +157,7 @@ export function Orb({ state, box = 20, label, className }: OrbProps): ReactEleme
       reduce?.removeEventListener('change', sync);
       canvas.remove();
     };
-  }, [state, box, label]);
+  }, [state, box, label, theme]);
 
   // 传了标签就由 canvas 自己去念;没传才整块隐身 —— 反过来写的话
   // aria-hidden 会连同 canvas 上的标签一起吞掉,标签成了死代码

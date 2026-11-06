@@ -1,0 +1,536 @@
+/* Dark theme overrides: workspace. See README.md for the rules.
+
+   Covers `styles/workspace/*.css` and `styles/design-system-flow.css`: the
+   Settings dialog, workspace tabs and drawer, design files, the design
+   browser, connectors and the design-system flow.
+
+   Recurring treatments, so related controls read as one family:
+   - Filled accent controls take --accent-contrast ink (README rule 4).
+   - "Ink pill with brand-green label" CTAs (near-black fill, neon label in
+     light) become a raised dark pill with a green edge and a --brand-ink
+     label: a light fill under a light-green label has no contrast.
+   - Switches: the on-track takes the accent with a dark knob, the off-track
+     keeps --border-strong with a --text-muted knob, so the knob reads in both
+     states.
+   - Inverted tooltips and toasts (light fill in dark) become raised dark
+     surfaces with a hairline edge. */
+
+/* ── workspace/mention-home.css ───────────────────────────────────────── */
+
+/* Updater panel CTA: brand pill. */
+html[data-theme='dark'] .updater-popup__button--primary {
+  background: var(--bg-muted);
+  border-color: color-mix(in srgb, var(--brand-ink) 40%, var(--border));
+  color: var(--brand-ink);
+}
+html[data-theme='dark'] .updater-popup__button--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand-ink) 12%, var(--bg-muted));
+  border-color: color-mix(in srgb, var(--brand-ink) 60%, var(--border));
+}
+
+html[data-theme='dark'] .modal-rename .row button.primary {
+  color: var(--accent-contrast);
+}
+
+/* Confirm modal primary: the hard-coded ink pill (and its pale grey
+   disabled state) becomes the accent primary. The recent-projects move
+   confirm restyles this same pill with a green label, so it takes the brand
+   pill instead. Order matters: danger last, as upstream. */
+html[data-theme='dark'] .modal-confirm .row button.primary:not(.recent-projects__move-confirm) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .modal-confirm .row button.primary:not(.recent-projects__move-confirm):hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .modal-confirm .row button.primary:not(.recent-projects__move-confirm):active {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .modal-confirm .row button.primary:disabled,
+html[data-theme='dark'] .modal-confirm .row button.primary:disabled:hover {
+  background: var(--bg-muted);
+  border-color: transparent;
+  color: var(--text-faint);
+}
+html[data-theme='dark'] .modal-confirm .row button.recent-projects__move-confirm.primary:not(:disabled) {
+  background: var(--bg-muted);
+  border-color: color-mix(in srgb, var(--brand-ink) 40%, var(--border));
+  color: var(--brand-ink);
+}
+html[data-theme='dark'] .modal-confirm .row button.recent-projects__move-confirm.primary:not(:disabled):hover,
+html[data-theme='dark'] .modal-confirm .row button.recent-projects__move-confirm.primary:not(:disabled):active {
+  background: color-mix(in srgb, var(--brand-ink) 12%, var(--bg-muted));
+  border-color: color-mix(in srgb, var(--brand-ink) 60%, var(--border));
+  color: var(--brand-ink);
+}
+html[data-theme='dark'] .modal-confirm .row button.primary.danger:not(:disabled) {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--accent-contrast);
+}
+
+/* Project-kind tags: the per-kind tokens tokens.css already defines.
+   `:where()` keeps these at upstream's (0,2,0), so recent-projects.css's
+   (0,3,0) neutral footer chip still wins, exactly as in light. */
+:where(html[data-theme='dark']) .design-card-tag.tag-prototype {
+  color: var(--tag-prototype-ink);
+  background: var(--tag-prototype-tint);
+  border-color: color-mix(in srgb, var(--tag-prototype-ink) 24%, transparent);
+}
+:where(html[data-theme='dark']) .design-card-tag.tag-live-artifact {
+  color: var(--tag-live-artifact-ink);
+  background: color-mix(in srgb, var(--tag-live-artifact-tint) 16%, transparent);
+  border-color: color-mix(in srgb, var(--tag-live-artifact-tint) 40%, transparent);
+}
+:where(html[data-theme='dark']) .design-card-tag.tag-web-clone {
+  color: var(--tag-web-clone-ink);
+  background: color-mix(in srgb, var(--tag-web-clone-ink) 10%, transparent);
+  border-color: color-mix(in srgb, var(--tag-web-clone-ink) 28%, transparent);
+}
+:where(html[data-theme='dark']) .design-card-tag.tag-slide {
+  color: var(--tag-slide-ink);
+  background: color-mix(in srgb, var(--tag-slide-tint) 16%, transparent);
+  border-color: color-mix(in srgb, var(--tag-slide-tint) 40%, transparent);
+}
+:where(html[data-theme='dark']) .design-card-tag.tag-media {
+  color: var(--tag-media-ink);
+  background: color-mix(in srgb, var(--tag-media-ink) 10%, transparent);
+  border-color: color-mix(in srgb, var(--tag-media-ink) 28%, transparent);
+}
+
+/* Segmented control: the active thumb must sit above the track. Upstream's
+   --bg-panel thumb is darker than the --bg-subtle track in dark. `:where()`
+   keeps upstream's specificity, so the variants that restyle the active thumb
+   (`.seg-btn--on.active`, viewer/pets.css's `.seg-btn.small.active`) still
+   win, as in light. */
+:where(html[data-theme='dark']) .seg-btn.active,
+:where(html[data-theme='dark']) .seg-btn.active:hover:not(:disabled) {
+  background: var(--bg-fill);
+}
+
+/* Provider chips: selected fill is the (light) accent. */
+html[data-theme='dark'] .protocol-chip.active,
+html[data-theme='dark'] .protocol-chip.active:hover {
+  color: var(--accent-contrast);
+}
+/* The green "connected" dot disappears on the light accent fill; a deep green
+   keeps the meaning and the contrast. */
+html[data-theme='dark'] .protocol-chip.active .media-provider-chip-status {
+  background: color-mix(in srgb, var(--green) 40%, var(--accent-contrast));
+}
+
+/* Automations (orbit) */
+html[data-theme='dark'] .orbit-hero-mark {
+  background: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    color-mix(in srgb, var(--accent) 72%, var(--bg)) 100%
+  );
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .orbit-run-cta,
+html[data-theme='dark'] .orbit-run-cta .icon-spin {
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .orbit-switch-thumb {
+  background: var(--text-muted);
+  box-shadow: var(--shadow-xs);
+}
+html[data-theme='dark'] .orbit-switch.is-on .orbit-switch-thumb {
+  background: var(--accent-contrast);
+}
+html[data-theme='dark'] .orbit-automation-sub-warning {
+  background: color-mix(in srgb, var(--amber) 10%, var(--bg-panel));
+  color: var(--amber);
+}
+html[data-theme='dark'] .orbit-automation-sub-warning svg {
+  color: var(--amber);
+}
+html[data-theme='dark'] .orbit-automation-sub-warning strong {
+  color: var(--text-strong);
+}
+html[data-theme='dark'] .orbit-automation-sub-action {
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 32%, var(--border));
+}
+html[data-theme='dark'] .orbit-automation-sub-action:hover {
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--border));
+  background: color-mix(in srgb, var(--amber) 8%, var(--bg-panel));
+}
+html[data-theme='dark'] .orbit-automation-sub-action:focus-visible {
+  outline-color: color-mix(in srgb, var(--amber) 65%, var(--accent));
+}
+/* Config gate: inverted --text-strong fills (and a hard-coded charcoal hover
+   that put --bg ink on near-black) become the accent primary. */
+html[data-theme='dark'] .orbit-config-gate-icon {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .orbit-config-gate-action {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .orbit-config-gate-action:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* ── workspace/artifacts.css ──────────────────────────────────────────── */
+
+html[data-theme='dark'] .orbit-artifact-open {
+  color: var(--accent-contrast);
+}
+
+/* Media providers: dark green / blue literal inks on dark tints. */
+html[data-theme='dark'] .media-provider-badge.integrated,
+html[data-theme='dark'] .media-provider-no-key {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  border-color: color-mix(in srgb, var(--green) 28%, var(--border));
+}
+html[data-theme='dark'] .media-provider-badge.on {
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  border-color: color-mix(in srgb, var(--blue) 28%, var(--border));
+}
+html[data-theme='dark'] .media-provider-chip-status.is-connected {
+  background: var(--green);
+}
+html[data-theme='dark'] .media-provider-chip-status.is-disconnected {
+  background: var(--text-faint);
+}
+
+/* Cloud sign-in callout (Settings → execution): brand pill CTA. */
+html[data-theme='dark'] .settings-cloud-signin-callout__title-icon {
+  background: color-mix(in srgb, var(--brand-ink) 22%, var(--brand-soft));
+  color: var(--brand-ink);
+}
+html[data-theme='dark'] .settings-cloud-signin-callout__button {
+  background: var(--bg-muted);
+  border-color: color-mix(in srgb, var(--brand-ink) 40%, var(--border));
+  color: var(--brand-ink);
+}
+html[data-theme='dark'] .settings-cloud-signin-callout__button:hover {
+  background: color-mix(in srgb, var(--brand-ink) 12%, var(--bg-muted));
+  border-color: color-mix(in srgb, var(--brand-ink) 60%, var(--border));
+}
+
+/* Agent card upgrade CTA: neon label on an ink fill in light; on the light
+   dark-theme accent it had no contrast. Brand pill. */
+html[data-theme='dark'] .agent-card-amr-upgrade {
+  background: var(--bg-muted);
+  border-color: color-mix(in srgb, var(--brand-ink) 40%, var(--border));
+  color: var(--brand-ink);
+}
+html[data-theme='dark'] .agent-card-amr-upgrade:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand-ink) 12%, var(--bg-muted));
+  border-color: color-mix(in srgb, var(--brand-ink) 60%, var(--border));
+}
+
+/* BYOK connection test: selected fill takes dark ink. */
+html[data-theme='dark'] .settings-section-byok .settings-test-btn,
+html[data-theme='dark'] .settings-section-byok .settings-test-btn.loading,
+html[data-theme='dark'] .settings-section-byok .settings-test-btn:hover:not(:disabled),
+html[data-theme='dark'] .settings-section-byok .settings-test-btn:focus-visible:not(:disabled),
+html[data-theme='dark'] .settings-section-byok .settings-test-btn:disabled {
+  color: var(--accent-contrast);
+}
+
+/* Model tier badges: the bright top sheen reads as a light hairline in dark;
+   the tier hues move onto the palette. */
+html[data-theme='dark'] .model-select-searchable__value-badge,
+html[data-theme='dark'] .model-select-searchable__option-badge {
+  box-shadow: inset 0 1px 0 var(--bg-fill-tertiary);
+}
+html[data-theme='dark'] .model-select-searchable__value-badge[data-tag='standard'],
+html[data-theme='dark'] .model-select-searchable__option-badge[data-tag='standard'] {
+  --model-tag-color: var(--text-soft);
+}
+html[data-theme='dark'] .model-select-searchable__value-badge[data-tag='advanced'],
+html[data-theme='dark'] .model-select-searchable__option-badge[data-tag='advanced'] {
+  --model-tag-color: var(--amber);
+}
+html[data-theme='dark'] .model-select-searchable__value-badge[data-tag='bestQuality'],
+html[data-theme='dark'] .model-select-searchable__option-badge[data-tag='bestQuality'] {
+  --model-tag-color: var(--red);
+}
+
+/* New-project tabs: the inverted near-white active tab becomes the accent. */
+html[data-theme='dark'] .newproj-tab.active,
+html[data-theme='dark'] .newproj-tab.active:hover:not(:disabled),
+html[data-theme='dark'] .newproj-tab.active:focus,
+html[data-theme='dark'] .newproj-tab.active:focus-visible {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .newproj-provider-badge.configured {
+  border-color: color-mix(in srgb, var(--blue) 24%, transparent);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  color: var(--blue);
+}
+html[data-theme='dark'] .newproj-connector-dot {
+  background: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent);
+}
+
+/* Fidelity picker art: a wireframe drawn in light strokes on the dark tile,
+   and a high-fidelity page whose near-black title bar would vanish on the
+   dark tile gets a light one. */
+html[data-theme='dark'] .fidelity-thumb-wireframe {
+  background: var(--bg-subtle);
+}
+html[data-theme='dark'] .fidelity-thumb-high-fidelity svg rect:first-child {
+  fill: var(--text-strong);
+}
+
+/* Switches. Overrides upstream's legacy warm-grey `[data-theme='dark']`
+   off-track and its knob outline. */
+html[data-theme='dark'] .toggle-row-switch,
+html[data-theme='dark'] .compact-toggle-switch {
+  background: var(--border-strong);
+  box-shadow: none;
+}
+html[data-theme='dark'] .toggle-row-switch::after,
+html[data-theme='dark'] .compact-toggle-switch::after {
+  background: var(--text-muted);
+  box-shadow: var(--shadow-xs);
+}
+html[data-theme='dark'] .compact-toggle:not(.on):hover .compact-toggle-switch,
+html[data-theme='dark'] .toggle-row:not(.on):hover .toggle-row-switch {
+  background: color-mix(in srgb, var(--text-muted) 30%, var(--border-strong));
+}
+html[data-theme='dark'] .toggle-row.on .toggle-row-switch,
+html[data-theme='dark'] .compact-toggle.on .compact-toggle-switch {
+  background: var(--accent);
+}
+html[data-theme='dark'] .toggle-row.on .toggle-row-switch::after,
+html[data-theme='dark'] .compact-toggle.on .compact-toggle-switch::after {
+  background: var(--accent-contrast);
+}
+
+/* ── workspace/drawer.css ─────────────────────────────────────────────── */
+
+html[data-theme='dark'] .design-card-checkbox.checked,
+html[data-theme='dark'] .designs-select-delete {
+  color: var(--accent-contrast);
+}
+
+/* Project card thumbnails render the user's design: keep its light ground
+   (content.css's iframe rule loses to this (0,2,0) selector). */
+html[data-theme='dark'] .design-card-thumb .thumb-iframe {
+  background: var(--content-canvas);
+}
+
+html[data-theme='dark'] .live-artifact-badge.refreshing {
+  color: var(--blue);
+  border-color: color-mix(in srgb, var(--blue) 28%, transparent);
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+}
+html[data-theme='dark'] .live-artifact-badge.refresh-failed {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 28%, transparent);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}
+
+/* Examples gallery tag. The platform/mode variants (viewer/composio.css)
+   paint a soft fill with accent ink and must keep it. */
+html[data-theme='dark'] .example-tag:not(.platform-mobile):not(.mode-deck) {
+  color: var(--accent-contrast);
+}
+
+/* Workspace tab row lead action (导出): the inverted near-white fill, whose
+   hover put brand green on it, becomes the accent primary. */
+html[data-theme='dark'] .app .ws-tabs-actions .chrome-action-dark,
+html[data-theme='dark'] .app .ws-tabs-actions .chrome-action-dark svg,
+html[data-theme='dark'] .app .ws-tabs-actions .chrome-action-dark i {
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .app .ws-tabs-actions .chrome-action-dark {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+html[data-theme='dark'] .app .ws-tabs-actions .chrome-action-dark:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .app .ws-tabs-actions .chrome-action-dark:hover:not(:disabled) svg,
+html[data-theme='dark'] .app .ws-tabs-actions .chrome-action-dark:hover:not(:disabled) i {
+  color: var(--accent-contrast);
+}
+
+/* Tab strip overflow: the "+" cover matches the strip's --bg. */
+html[data-theme='dark'] .ws-tabs-bar.is-overflowing + .ws-add-tab {
+  background: var(--bg);
+}
+
+/* Page creator: brand pills for the active filter and the use CTA. */
+html[data-theme='dark'] .page-creator-subcat.active,
+html[data-theme='dark'] .page-creator-use {
+  background: var(--bg-muted);
+  border-color: color-mix(in srgb, var(--brand-ink) 40%, var(--border));
+  color: var(--brand-ink);
+}
+html[data-theme='dark'] .page-creator-subcat.active:hover,
+html[data-theme='dark'] .page-creator-use:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand-ink) 12%, var(--bg-muted));
+  border-color: color-mix(in srgb, var(--brand-ink) 60%, var(--border));
+  color: var(--brand-ink);
+}
+html[data-theme='dark'] .page-creator-use:hover:not(:disabled) {
+  box-shadow: var(--shadow-sm);
+}
+/* Upstream's disabled state, restated: the rule above outranks it. */
+html[data-theme='dark'] .page-creator-use:disabled {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-panel));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  color: color-mix(in srgb, var(--accent) 56%, var(--text-faint));
+}
+/* Blank-page card: a light wash over ruled lines → a dark one. */
+html[data-theme='dark'] .page-creator-card--blank .page-creator-card-frame {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--bg-elevated) 92%, transparent),
+      color-mix(in srgb, var(--bg-panel) 72%, transparent)
+    ),
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--border) 58%, transparent) 0,
+      color-mix(in srgb, var(--border) 58%, transparent) 1px,
+      transparent 1px,
+      transparent 18px
+    );
+}
+
+/* ── workspace/design-files.css ───────────────────────────────────────── */
+
+/* Selected row: --blue is a light fill in dark, so its ink goes dark. */
+html[data-theme='dark'] .df-row.selected .df-row-name,
+html[data-theme='dark'] .df-row.selected .df-row-check,
+html[data-theme='dark'] .df-row.selected .df-row-menu {
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .df-row.selected .df-row-sub,
+html[data-theme='dark'] .df-row.selected .df-row-size,
+html[data-theme='dark'] .df-row.selected .df-row-time {
+  color: color-mix(in srgb, var(--accent-contrast) 78%, transparent);
+}
+html[data-theme='dark'] .df-row.selected .df-row-check:hover,
+html[data-theme='dark'] .df-row.selected .df-row-menu:hover {
+  color: var(--text);
+}
+html[data-theme='dark'] .df-row-icon[data-kind="code"] {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+/* Empty state: the plain light surface is the panel ground. */
+html[data-theme='dark'] .df-empty {
+  background-color: var(--bg);
+}
+html[data-theme='dark'] .df-empty-cta-upload .od-icon {
+  color: var(--tag-live-artifact-ink);
+}
+html[data-theme='dark'] .df-empty-cta-upload:hover:not(:disabled) {
+  border-color: var(--tag-live-artifact-ink);
+}
+
+/* Cards: the meta strip is chrome; the thumbnail above it (light, authored
+   content) is left as is. The hover chips over the thumbnail turn dark so
+   their light icons stay visible. */
+html[data-theme='dark'] .df-card {
+  background: var(--bg-elevated);
+}
+html[data-theme='dark'] .df-card-check,
+html[data-theme='dark'] .df-card--image .df-card-menu-overlay {
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+}
+html[data-theme='dark'] .df-card-check:hover,
+html[data-theme='dark'] .df-card--image .df-card-menu-overlay:hover {
+  background: var(--bg-subtle);
+}
+
+/* ── workspace/design-browser.css ─────────────────────────────────────── */
+
+/* Tooltip and status toast: inverted light fills become raised dark ones. */
+html[data-theme='dark'] .db-tooltip-anchor:not(.od-tooltip)::after {
+  border-color: var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-md);
+}
+html[data-theme='dark'] .db-status {
+  border-color: var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-lg);
+}
+html[data-theme='dark'] .db-status-action {
+  border-color: color-mix(in srgb, var(--text) 24%, transparent);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text-strong);
+}
+html[data-theme='dark'] .db-status-action:hover {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+}
+
+/* ── workspace/connectors.css ─────────────────────────────────────────── */
+
+/* Avatar overflow count: light ink on a (now light) --text-strong fill. */
+html[data-theme='dark'] .ds-avatar-stack {
+  background: var(--bg-muted);
+  color: var(--text-strong);
+}
+/* Design-system picker radio / checkbox: checked marks take the accent. */
+html[data-theme='dark'] .ds-picker-mark.radio.active {
+  border-color: var(--accent);
+}
+html[data-theme='dark'] .ds-picker-mark.radio.active::after {
+  background: var(--accent);
+}
+html[data-theme='dark'] .ds-picker-mark.check.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* ── design-system-flow.css ───────────────────────────────────────────── */
+
+html[data-theme='dark'] .ds-editor-error {
+  border-color: color-mix(in srgb, var(--red) 32%, transparent);
+  background: color-mix(in srgb, var(--red) 8%, transparent);
+  color: var(--red);
+}
+html[data-theme='dark'] .ds-project-loading-mark {
+  box-shadow:
+    0 16px 46px color-mix(in srgb, var(--accent) 16%, transparent),
+    inset 0 1px 0 var(--glass-edge-highlight);
+}
+
+/* DESIGN.md component-kit preview: authored content. base.css repaints every
+   `button.primary` with the app accent; give the preview's primaries back the
+   design system's own colors in every state. */
+html[data-theme='dark'] .ds-design-md-button-row button.primary,
+html[data-theme='dark'] .ds-design-md-size-row button.primary {
+  background: var(--ds-md-primary);
+  border-color: var(--ds-md-primary);
+}
+html[data-theme='dark'] .ds-design-md-button-row button.primary:hover:not(:disabled),
+html[data-theme='dark'] .ds-design-md-size-row button.primary:hover:not(:disabled) {
+  background: var(--ds-md-primary-hover);
+  border-color: var(--ds-md-primary-hover);
+}
+html[data-theme='dark'] .ds-design-md-button-row button.primary:active:not(:disabled),
+html[data-theme='dark'] .ds-design-md-size-row button.primary:active:not(:disabled) {
+  background: var(--ds-md-primary-active);
+  border-color: var(--ds-md-primary-active);
+}

@@ -284,3 +284,11 @@ p.publishHint {
    (2026 refactor: item 2) — used here for both a failed publish and the
    S7/S15 pre-check "file too large" block; legacy renderer and deployment
    errors keep their own styles. */
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Compact scope trigger: a control a step above the share card, with an ink
+   from the theme ramp instead of a light-theme grey. */
+:global(html[data-theme='dark']) .panel :global(.chrome-access-trigger) {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+}

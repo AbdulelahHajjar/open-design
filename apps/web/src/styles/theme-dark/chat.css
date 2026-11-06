@@ -1,0 +1,92 @@
+/* Dark theme overrides: chat. See README.md for the rules.
+
+   Covers upstream `styles/chat.css`: the transcript, the user bubble, the
+   message rail and the chat composer. The chat panel's CSS Modules read the
+   `--chat-*` seam instead; its dark mapping is the block at the end of
+   `components/chat/ChatRoot.module.css`. */
+
+/* Two `--chat-*` seam inks that upstream pins to one neutral gray in both
+   themes: the plan's current step and the standalone tool / reconnect row.
+   The rest of the seam's dark mapping is the fork block at the end of
+   `components/chat/ChatRoot.module.css`; these two live here because
+   upstream's tests allow exactly two declarations of each in that file.
+   `[data-chat-root]` sits on every seam element, and this out-ranks the
+   module's own dark scope. */
+html[data-theme='dark'] [data-chat-root] {
+  --chat-plan-current-text: var(--text);
+  --chat-tool-ink: var(--text-soft);
+}
+
+/* Muted ink beside a message (timestamp, copy, fork note). Upstream pins one
+   neutral gray for both themes; here it takes the soft text tier. */
+html[data-theme='dark'] .msg,
+html[data-theme='dark'] .fork-note {
+  --chat-message-muted-ink: var(--text-soft);
+}
+
+/* User bubble. Upstream's dark turns it into a near-white bubble with page
+   ink. Here it stays a raised dark surface with light ink, and everything
+   drawn in the bubble's ink follows. The design-system status card shares
+   this ground through the seam. */
+html[data-theme='dark'] .msg.user {
+  --chat-user-bubble-ground: var(--bg-muted);
+}
+html[data-theme='dark'] .msg.user .user-text {
+  color: var(--text-strong);
+}
+html[data-theme='dark'] .msg.user .user-text.is-cut .user-text-more {
+  color: var(--text-strong);
+}
+html[data-theme='dark'] .msg.user .msg-more button {
+  color: color-mix(in srgb, var(--text-strong) 68%, transparent);
+}
+html[data-theme='dark'] .msg.user .msg-more button:hover {
+  color: var(--text-strong);
+}
+
+/* Hover badge on a sent image: an inverted strong-ink chip upstream. */
+html[data-theme='dark'] .msg.user .msg-att-eye {
+  background: var(--bg-muted);
+  color: var(--text-strong);
+}
+
+/* Message-rail preview: upstream tints its shadow with the body ink, which
+   turns into a light glow on a dark ground. */
+html[data-theme='dark'] .chat-message-rail__preview {
+  box-shadow: var(--shadow-md);
+}
+
+/* Composer attachment tray. The upload sweep takes the body ink, and the fade
+   under the paging arrows must equal the ground the tray sits on: the chat
+   composer's floating card. */
+html[data-theme='dark'] .composer-att {
+  --composer-att-ink: var(--text);
+  --att-fade: var(--chat-floating-card-bg, var(--bg-elevated));
+}
+
+/* The run button keeps the theme-independent send pair. Upstream lifts its
+   admission-pending hover to --text-strong, which equals --send-ink only in
+   light. */
+html[data-theme='dark'] .composer-send.stop.admission-pending:hover {
+  background: var(--send-ink);
+}
+
+/* Accent-filled CTAs that upstream still styles with white ink. */
+html[data-theme='dark'] .msg .artifact-badge,
+html[data-theme='dark'] .chat-error-action,
+html[data-theme='dark'] .chat-error-amr-login .amr-account-control--signed-out .amr-account-control__action,
+html[data-theme='dark'] .chat-error-amr-login .amr-account-control--error .amr-account-control__action {
+  color: var(--accent-contrast);
+}
+
+/* Chat-mode chip: upstream lightens its ground with white. */
+html[data-theme='dark'] .msg-mode-chip--chat {
+  background: var(--bg-subtle);
+}
+
+/* Queued-send tooltip for hosts without the shared tooltip: an inverted
+   near-white bubble upstream. */
+html[data-theme='dark'] .chat-queued-send-tooltip:not(.od-tooltip)[data-tooltip]::after {
+  background: var(--bg-muted);
+  color: var(--text-strong);
+}

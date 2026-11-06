@@ -35,3 +35,9 @@
 .kitErrorRetry:hover {
   background: var(--surface-hover, #f5f5f5);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* `--surface` is never defined, so the retry button fell back to white. */
+:global(html[data-theme='dark']) .kitErrorRetry {
+  background: var(--bg-elevated);
+}

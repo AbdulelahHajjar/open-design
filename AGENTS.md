@@ -365,6 +365,7 @@ Before changing any prompt text — in any of those locations — read `docs/pro
 
 ## Web CSS ownership
 
+- Dark theme (fork-owned overlay): read `apps/web/src/styles/theme-dark/README.md` before styling any web UI. Dark overrides live in that folder (global sheets) or in one end-of-file block per CSS Module, use tokens only, and are checked by the `tests/styles/dark-theme-*` guards after every upstream sync.
 - `apps/web/src/index.css` is an import-only cascade entrypoint. Do not add selectors or declarations there; add imports only when a truly global stylesheet is needed, and keep import order intentional.
 - Shared global styles belong in `apps/web/src/styles/`: design tokens, base/reset rules, primitives, app-shell layout, and legacy cross-component selectors that cannot safely be scoped yet. Keep domain-level global files grouped by owner (for example `styles/viewer/` and `styles/workspace/`) instead of adding more large files directly under `styles/`.
 - New component-owned UI styles should default to CSS Modules next to the component (`Component.module.css`) instead of expanding global stylesheets. This is preferred for isolated components, panels, menus, drawers, toolbars, cards, and form sections.

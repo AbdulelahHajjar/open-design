@@ -10,6 +10,7 @@ import {
 	emitWebTouchpointDiagnostic,
 	ensureWebTouchpointElement,
 	focusWebTouchpointModal,
+	currentWebTouchpointTheme,
 	readWebTouchpointHostContext,
 	lockWebTouchpointModalScroll,
 	ownsWebTouchpointModalKeyboard,
@@ -531,9 +532,7 @@ export function ProductionCampaignModal({
 					decision.content,
 					readWebTouchpointHostContext(
 						decision.content.locale,
-						document.documentElement.classList.contains("dark")
-							? "dark"
-							: "light",
+						currentWebTouchpointTheme(),
 					),
 				);
 				if (!current() || !context) {

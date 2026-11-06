@@ -10,6 +10,10 @@ import {
 	type TouchpointSdk,
 	TouchpointUpdateQueue,
 } from "@open-design/contracts";
+import {
+	readDocumentTheme,
+	subscribeToThemeChanges,
+} from "../state/theme-preference";
 
 export type WebTouchpointContent = {
 	id: string;
@@ -131,6 +135,36 @@ const WEB_HOST_VARIABLES = [
 	"--success",
 	"--warning",
 ] as const;
+
+/**
+ * The app defines none of the bridge's shadcn-style names except `--border`,
+ * `--border-strong` and `--accent`, so in light a touchpoint gets empty values
+ * and paints its own palette. In the dark theme, empty names are filled from
+ * the app's tokens so the touchpoint matches the dark app around it.
+ */
+const DARK_HOST_VARIABLE_TOKENS: Readonly<
+	Partial<Record<(typeof WEB_HOST_VARIABLES)[number], string>>
+> = {
+	"--background": "--bg-elevated",
+	"--foreground": "--text",
+	"--card": "--bg-panel",
+	"--surface-muted": "--bg-subtle",
+	"--muted": "--text-muted",
+	"--muted-strong": "--text",
+	"--primary": "--accent",
+	"--primary-hover": "--accent-hover",
+	"--primary-foreground": "--accent-contrast",
+	"--ring": "--accent",
+	"--accent-foreground": "--accent-contrast",
+	"--danger": "--red",
+	"--success": "--green",
+	"--warning": "--amber",
+};
+
+/** The app theme a touchpoint should render in: the theme stamped on `<html>`. */
+export function currentWebTouchpointTheme(): "light" | "dark" {
+	return readDocumentTheme();
+}
 
 function bytesFromBase64(value: string): Uint8Array {
 	const decoded = atob(value);
@@ -283,9 +317,13 @@ export class OpenDesignTouchpointElement extends TouchpointElementBase {
 	private readonly lifecycleTimers = new Set<ReturnType<typeof setTimeout>>();
 	private contextGeneration = 0;
 	private updateQueue?: TouchpointUpdateQueue<WebTouchpointContext>;
+	private lastContext?: WebTouchpointContext;
+	private hostTheme?: "light" | "dark";
+	private unsubscribeTheme?: () => void;
 
 	/** Applies host styling only to the open ShadowRoot; it never writes global styles. */
 	private applyHostContext(context: WebTouchpointContext) {
+		this.hostTheme = context.theme;
 		this.style.setProperty("--vela-touchpoint-font-family", context.fontFamily);
 		this.style.setProperty("--vela-touchpoint-theme", context.theme);
 		for (const [name, value] of Object.entries(context.cssVariables)) {
@@ -304,6 +342,30 @@ export class OpenDesignTouchpointElement extends TouchpointElementBase {
 				":host { color-scheme: var(--vela-touchpoint-theme); font-family: var(--vela-touchpoint-font-family); color: var(--foreground); background: var(--background); } *, *::before, *::after { box-sizing: border-box; }";
 			this.shadowRoot.prepend(style);
 		}
+	}
+
+	/** Re-themes a mounted touchpoint when the app theme changes under it. */
+	private followAppTheme(generation: number) {
+		const previous = this.lastContext;
+		if (!previous || !this.isCurrent(generation)) return;
+		const theme = currentWebTouchpointTheme();
+		const canUpdate = Boolean(this.module?.update && this.updateQueue);
+		if (canUpdate ? previous.theme === theme : this.hostTheme === theme) return;
+		const host = readWebTouchpointHostContext(previous.locale, theme);
+		const next: WebTouchpointContext = Object.freeze({
+			...previous,
+			theme: host.theme,
+			fontFamily: host.fontFamily,
+			cssVariables: host.cssVariables,
+		});
+		if (canUpdate) {
+			void this.update(next, new Map());
+			return;
+		}
+		// Not adopted yet, or no `update` hook: restyle the host only, and keep
+		// `lastContext` as the context the component itself was given, so a
+		// mount that completes later still sees the difference and replays it.
+		this.applyHostContext(next);
 	}
 
 	private recordDiagnostic(diagnostic: TouchpointDiagnostic) {
@@ -390,6 +452,11 @@ export class OpenDesignTouchpointElement extends TouchpointElementBase {
 			(code) => this.recordDiagnostic({ code }),
 		);
 		this.applyHostContext(context);
+		this.lastContext = context;
+		this.unsubscribeTheme?.();
+		this.unsubscribeTheme = subscribeToThemeChanges(() =>
+			this.followAppTheme(generation),
+		);
 		const timeoutMs = options.timeoutMs ?? TOUCHPOINT_TIMEOUT_MS;
 		if (!Number.isFinite(timeoutMs) || timeoutMs < 1)
 			throw new Error("touchpoint_mount_timeout_invalid");
@@ -430,6 +497,9 @@ export class OpenDesignTouchpointElement extends TouchpointElementBase {
 			adoptedLateMount = true;
 			this.module = component;
 			this.instance = instance;
+			// A theme switch during the mount only restyled the host; hand the
+			// component the theme it missed.
+			this.followAppTheme(generation);
 		} catch (error) {
 			if (lateMount && !adoptedLateMount) {
 				void lateMount.then(
@@ -489,6 +559,7 @@ export class OpenDesignTouchpointElement extends TouchpointElementBase {
 	) {
 		void resourceUrls;
 		if (this.disposed || !this.module?.update || !this.updateQueue) return;
+		this.lastContext = context;
 		await this.updateQueue.schedule(context).catch((error) => {
 			this.recordDiagnostic({
 				code:
@@ -512,6 +583,10 @@ export class OpenDesignTouchpointElement extends TouchpointElementBase {
 		this.disposed = true;
 		++this.generation;
 		++this.contextGeneration;
+		this.unsubscribeTheme?.();
+		this.unsubscribeTheme = undefined;
+		this.lastContext = undefined;
+		this.hostTheme = undefined;
 		this.updateQueue?.cancel();
 		this.updateQueue = undefined;
 		this.clearLifecycleTimers();
@@ -578,10 +653,14 @@ export function readWebTouchpointHostContext(
 ): WebTouchpointHostContext {
 	const styles = getComputedStyle(document.documentElement);
 	const cssVariables = Object.fromEntries(
-		WEB_HOST_VARIABLES.map((name) => [
-			name,
-			styles.getPropertyValue(name).trim(),
-		]),
+		WEB_HOST_VARIABLES.map((name) => {
+			const value = styles.getPropertyValue(name).trim();
+			const darkToken = theme === "dark" ? DARK_HOST_VARIABLE_TOKENS[name] : undefined;
+			return [
+				name,
+				value || (darkToken ? styles.getPropertyValue(darkToken).trim() : value),
+			];
+		}),
 	);
 	return Object.freeze({
 		locale,
@@ -717,7 +796,7 @@ export function webTouchpointContext(
 	touchpoint: WebTouchpointContent,
 	host: WebTouchpointHostContext = readWebTouchpointHostContext(
 		touchpoint.locale,
-		document.documentElement.classList.contains("dark") ? "dark" : "light",
+		currentWebTouchpointTheme(),
 	),
 ): WebTouchpointContext | undefined {
 	const placement = touchpoint.manifest.placements.find(

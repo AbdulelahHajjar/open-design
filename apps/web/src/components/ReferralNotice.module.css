@@ -27,3 +27,14 @@
   :global(.home-view) > :global(.home-hero):has(.slot){padding-top:132px}
   .slot{margin-bottom:16px}
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Deep-green inks (#007c02, rgb(2,113,6)) are dark-on-dark here. */
+:global(html[data-theme='dark']) .countdown,
+:global(html[data-theme='dark']) .notice .action {
+  color: var(--brand-ink);
+}
+:global(html[data-theme='dark']) .notice .action:focus-visible,
+:global(html[data-theme='dark']) .notice .close:focus-visible {
+  outline-color: var(--brand-ink);
+}

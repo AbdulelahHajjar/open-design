@@ -1,5 +1,12 @@
 export const DEFAULT_SKETCH_LIGHT_TOOL_COLOR = '#1c1b1a';
-export const DEFAULT_SKETCH_DARK_TOOL_COLOR = '#ffffff';
+/**
+ * Excalidraw stores light-mode colors and renders its dark theme by putting
+ * `invert(93%) hue-rotate(180deg)` over the canvas. The dark-theme default
+ * pen is therefore the same dark ink, which displays as near-white; a stored
+ * white pen would display near-black on the dark canvas and export as white on
+ * the white export background.
+ */
+export const DEFAULT_SKETCH_DARK_TOOL_COLOR = DEFAULT_SKETCH_LIGHT_TOOL_COLOR;
 
 export function resolveDefaultSketchToolColor(
   theme: string | null,

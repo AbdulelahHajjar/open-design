@@ -111,3 +111,10 @@
 .refName {
   white-space: nowrap;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The icon shares the done tick's green, which is the Ghostty bright green in
+   dark. */
+:global(html[data-theme='dark']) .appliedIcon {
+  color: var(--green);
+}

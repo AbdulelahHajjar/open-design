@@ -4,6 +4,7 @@ import { getOpenDesignHost } from "@open-design/host";
 import {
 	emitWebTouchpointDiagnostic,
 	ensureWebTouchpointElement,
+	currentWebTouchpointTheme,
 	readWebTouchpointHostContext,
 	supportsWebTouchpointCapabilities,
 	verifyWebTouchpoint,
@@ -171,9 +172,7 @@ export function ProductionCampaignBadge({
 					decision.content,
 					readWebTouchpointHostContext(
 						decision.content.locale,
-						document.documentElement.classList.contains("dark")
-							? "dark"
-							: "light",
+						currentWebTouchpointTheme(),
 					),
 				);
 				if (!current() || !context) {

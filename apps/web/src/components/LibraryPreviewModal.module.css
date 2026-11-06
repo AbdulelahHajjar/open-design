@@ -329,3 +329,22 @@
   color: var(--red);
   background: color-mix(in srgb, var(--red) 10%, transparent);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+:global(html[data-theme='dark']) .kindBadge {
+  background: color-mix(in srgb, var(--kind-tint) 22%, var(--bg-elevated));
+  color: color-mix(in srgb, var(--kind-tint) 50%, var(--text-strong));
+}
+/* The black 3% transparency checker vanishes on the dark stage. */
+:global(html[data-theme='dark']) .stage {
+  background-image: linear-gradient(45deg, var(--bg-fill-tertiary) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--bg-fill-tertiary) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--bg-fill-tertiary) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--bg-fill-tertiary) 75%);
+}
+/* Font specimens and text assets set their ink with --text, so their white
+   ground has to follow the theme too. */
+:global(html[data-theme='dark']) .fontStage,
+:global(html[data-theme='dark']) .textStage {
+  background: var(--bg);
+}

@@ -227,7 +227,7 @@ export function buildSpeakerNotesPresenterHtml(options: {
     /* Preview decks are non-interactive so keyboard nav always reaches THIS
        presenter window (not a focused child iframe) and clicks bubble up to the
        frame's own click-to-navigate handler. */
-    iframe { display: block; width: 100%; height: 100%; border: 0; background: white; pointer-events: none; }
+    iframe { display: block; width: 100%; height: 100%; border: 0; background: white; color-scheme: light; pointer-events: none; }
     .filmstrip { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-height: 168px; }
     .filmstrip section { min-width: 0; cursor: pointer; }
     /* Pin each cell to its own column so "Previous" always sits on the left and

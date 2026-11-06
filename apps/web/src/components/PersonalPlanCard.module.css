@@ -71,3 +71,25 @@
   outline: 2px solid #83df62;
   outline-offset: 4px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Light draws an inverted ink card on a white page. In dark there is nothing
+   to invert against, so the card becomes an ordinary raised popover and its
+   upgrade pill takes the accent. */
+:global(html[data-theme='dark']) .card:global(.entry-nav-rail__menu-credits) {
+  background: var(--bg-elevated);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-lg);
+}
+:global(html[data-theme='dark']) .card :global(.entry-nav-rail__menu-credits-upgrade) {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+:global(html[data-theme='dark']) .card :global(.entry-nav-rail__menu-credits-upgrade):hover:not(:disabled),
+:global(html[data-theme='dark']) .card :global(.entry-nav-rail__menu-credits-upgrade):focus-visible {
+  background: var(--accent-hover);
+  color: var(--accent-contrast);
+}
+:global(html[data-theme='dark']) .card :global(.entry-nav-rail__menu-credits-upgrade):focus-visible {
+  outline-color: var(--accent);
+}

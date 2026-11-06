@@ -223,3 +223,42 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Avatar fills are light in dark (accent, muted grey), so every avatar takes
+   dark ink and the owner/admin role hues move to light status tokens to
+   match. The popover sheds its white inset rim and sits on the raised
+   surface, and the presence dots ring that surface. */
+:global(html[data-theme='dark']) .avatar,
+:global(html[data-theme='dark']) .overflow,
+:global(html[data-theme='dark']) .rowAvatar {
+  color: var(--accent-contrast);
+}
+
+:global(html[data-theme='dark']) .avatar[data-role='owner'],
+:global(html[data-theme='dark']) .rowAvatar[data-role='owner'] {
+  background: var(--amber);
+}
+
+:global(html[data-theme='dark']) .avatar[data-role='admin'],
+:global(html[data-theme='dark']) .rowAvatar[data-role='admin'] {
+  background: var(--green);
+}
+
+:global(html[data-theme='dark']) .avatar[data-self='true']::after {
+  background: var(--green);
+}
+
+:global(html[data-theme='dark']) .popover {
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+}
+
+:global(html[data-theme='dark']) .popover::before {
+  background: var(--bg-elevated);
+}
+
+:global(html[data-theme='dark']) .onlineDot {
+  background: var(--green);
+  box-shadow: 0 0 0 2px var(--bg-elevated);
+}

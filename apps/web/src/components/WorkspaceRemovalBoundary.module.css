@@ -10,3 +10,18 @@
 .actions .confirm:active:not(:disabled) { background: #333; color: #fff; transform: none; }
 .actions .confirm:disabled { opacity: .55; cursor: wait; }
 .actions .confirm:focus-visible { outline: 1px solid #c7c7c7; outline-offset: 1px; }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+:global(html[data-theme='dark']) .backdrop { background: var(--scrim-tint); }
+:global(html[data-theme='dark']) .dialog { background: var(--bg-elevated); color: var(--text-strong); box-shadow: var(--shadow-lg); }
+:global(html[data-theme='dark']) .dialog p { color: var(--text-muted); }
+:global(html[data-theme='dark']) .dialog .error { color: var(--red); }
+/* The confirm is a `primary` Button: base.css gives it the accent, but the
+   hover/active rule above would put white ink back on that light fill. */
+:global(html[data-theme='dark']) .actions .confirm,
+:global(html[data-theme='dark']) .actions .confirm:hover:not(:disabled),
+:global(html[data-theme='dark']) .actions .confirm:active:not(:disabled) { color: var(--accent-contrast); }
+:global(html[data-theme='dark']) .actions .confirm { background: var(--accent); }
+:global(html[data-theme='dark']) .actions .confirm:hover:not(:disabled),
+:global(html[data-theme='dark']) .actions .confirm:active:not(:disabled) { background: var(--accent-hover); }
+:global(html[data-theme='dark']) .actions .confirm:focus-visible { outline-color: var(--text-muted); }

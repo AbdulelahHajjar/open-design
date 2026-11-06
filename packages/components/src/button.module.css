@@ -170,3 +170,34 @@
   cursor: not-allowed;
   transform: none;
 }
+
+/* ── dark theme (fork) · see apps/web/src/styles/theme-dark/README.md ── */
+/* Same treatment as `button.primary` in theme-dark/base.css: the accent fill
+   with dark ink (upstream's inverted neutral and its #353535 hover are
+   dark-on-dark here). `variant="primary"` also carries the global `primary`
+   class, so base.css normally wins; this twin keeps the module's own
+   specificity (`:where` adds none) so it still holds without that class and
+   never outranks a consumer's own primary override. CSS Modules never hash
+   element or attribute selectors, so the prefix needs no `:global()`, which
+   the jsdom cascade resolvers in apps/web/tests cannot parse. */
+:where(html[data-theme='dark']) .primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+:where(html[data-theme='dark']) .primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+:where(html[data-theme='dark']) .primary:active:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+:where(html[data-theme='dark']) .primary:disabled {
+  background: var(--bg-muted);
+  border-color: var(--bg-muted);
+  color: var(--text-faint);
+}

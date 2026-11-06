@@ -31,3 +31,16 @@
 
 .replay { position: fixed; right: 16px; bottom: 16px; z-index: 90; padding: 8px 12px; border: 1px solid var(--border, #d4d4d8); border-radius: 8px; background: var(--surface, #fff); color: var(--foreground, #111); font: inherit; font-size: 12px; cursor: pointer; }
 .replay:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The test controls fall back to white surfaces and #111 ink. */
+:global(html[data-theme='dark']) .control,
+:global(html[data-theme='dark']) .replay {
+  color: var(--text);
+}
+:global(html[data-theme='dark']) .control > label,
+:global(html[data-theme='dark']) .control output,
+:global(html[data-theme='dark']) .replay {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+}

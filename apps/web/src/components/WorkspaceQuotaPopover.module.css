@@ -210,3 +210,25 @@ section + .metered { margin-top: 16px; }
   outline: 2px solid #83df62;
   outline-offset: 3px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Inks were tuned for the inverted ink card; they move onto the theme ramp.
+   The help bubble was a light tooltip off a dark card: in dark it is a step
+   above the card instead. */
+:global(html[data-theme='dark']) .sectionHead h3 { color: var(--text-strong); }
+:global(html[data-theme='dark']) .helpTrigger { color: var(--text-soft); }
+:global(html[data-theme='dark']) .helpTrigger:hover,
+:global(html[data-theme='dark']) .helpTrigger:focus-visible { color: var(--text-strong); }
+:global(html[data-theme='dark']) .helpTrigger:focus-visible { outline-color: var(--green); }
+:global(html[data-theme='dark']) .tooltip { background: var(--bg-muted); color: var(--text); }
+:global(html[data-theme='dark']) .tooltip::after { background: var(--bg-muted); }
+:global(html[data-theme='dark']) .row > :first-child { color: var(--text-muted); }
+:global(html[data-theme='dark']) .row > :last-child { color: var(--text-strong); }
+:global(html[data-theme='dark']) .freeRow > .availability { color: var(--text-soft); }
+:global(html[data-theme='dark']) .track { background: var(--bg-fill); }
+:global(html[data-theme='dark']) .placeholder { color: var(--text); }
+:global(html[data-theme='dark']) .placeholder small { color: var(--text-soft); }
+:global(html[data-theme='dark']) .footer { border-top-color: var(--border); color: var(--text-soft); }
+:global(html[data-theme='dark']) .details { color: var(--text-soft); }
+:global(html[data-theme='dark']) .balance:hover { color: var(--green); }
+:global(html[data-theme='dark']) .balance:focus-visible { outline-color: var(--green); }

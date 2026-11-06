@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { BrowserWindow, dialog } from "electron";
 import type { DesktopExportPdfInput, DesktopExportPdfResult } from "@open-design/sidecar-proto";
 import { findRealElementRange, findRealTagEnd, findRealTagOffset, HTML_TAG_PATTERNS } from '@open-design/contracts/runtime/html-injection-points';
+import { loadInLightColorScheme } from "./export-color-scheme.js";
 
 export type PageSize = { height: number; width: number };
 
@@ -85,7 +86,8 @@ export async function exportPdfFromHtml(input: DesktopExportPdfInput): Promise<D
   });
 
   try {
-    await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildPrintableDocument(input))}`);
+    const url = `data:text/html;charset=utf-8,${encodeURIComponent(buildPrintableDocument(input))}`;
+    await loadInLightColorScheme(window, () => window.loadURL(url));
     await waitForPrintableContent(window);
     if (input.deck) await unhideDeckSlidesForPrint(window);
     const pageSize = input.deck ? DECK_PAGE_SIZE : await inferPageSize(window);
@@ -215,7 +217,8 @@ export function createElectronPdfTarget(): PrintReadyPdfTarget {
       window = printWindow;
       printWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
       printWindow.webContents.on("will-navigate", (event) => event.preventDefault());
-      await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      const url = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+      await loadInLightColorScheme(printWindow, () => printWindow.loadURL(url));
     },
     async waitUntilReady(nonce) {
       if (!window) throw new Error("PDF render window has not been loaded");

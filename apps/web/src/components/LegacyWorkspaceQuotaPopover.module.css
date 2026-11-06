@@ -131,3 +131,19 @@
   outline: 2px solid #83df62;
   outline-offset: 3px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Same treatment as WorkspaceQuotaPopover.module.css. */
+:global(html[data-theme='dark']) .sectionHead h3 { color: var(--text-strong); }
+:global(html[data-theme='dark']) .helpTrigger { color: var(--text-soft); }
+:global(html[data-theme='dark']) .helpTrigger:hover,
+:global(html[data-theme='dark']) .helpTrigger:focus-visible { color: var(--text-strong); }
+:global(html[data-theme='dark']) .helpTrigger:focus-visible { outline-color: var(--green); }
+:global(html[data-theme='dark']) .tooltip { background: var(--bg-muted); color: var(--text); box-shadow: var(--shadow-md); }
+:global(html[data-theme='dark']) .track { background: var(--bg-fill); }
+:global(html[data-theme='dark']) .placeholder { color: var(--text); }
+:global(html[data-theme='dark']) .placeholder small { color: var(--text-soft); }
+:global(html[data-theme='dark']) .footer { border-top-color: var(--border); color: var(--text-soft); }
+:global(html[data-theme='dark']) .details { color: var(--text-soft); }
+:global(html[data-theme='dark']) .balance:hover { color: var(--green); }
+:global(html[data-theme='dark']) .balance:focus-visible { outline-color: var(--green); }

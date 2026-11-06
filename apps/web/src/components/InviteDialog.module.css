@@ -225,3 +225,93 @@
  .onboarding .panel > header,.onboarding .panel > p,.onboarding form,.onboarding .skip { flex-shrink:0; }
  .onboarding .panel > .onboardingFooter { position:static;align-self:flex-start;flex-shrink:0;margin-top:auto;padding-top:32px; }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The local palette remaps to theme tokens; rules below that hard-code a
+   colour, or paint --invite-ink as a button fill, get their own override. */
+:global(html[data-theme='dark']) .root,
+:global(html[data-theme='dark']) .menu {
+  --invite-ink: var(--text-strong);
+  --invite-text: var(--text);
+  --invite-tooltip: var(--bg-muted);
+  --invite-surface: var(--bg-elevated);
+  --invite-muted: var(--text-soft);
+  --invite-note: var(--text-soft);
+  --invite-faint: var(--text-faint);
+  --invite-secondary: var(--text-muted);
+  --invite-label: var(--text-muted);
+  --invite-option: var(--text);
+  --invite-border: var(--border-strong);
+  --invite-menu-border: var(--border);
+  --invite-error-border: var(--red);
+  --invite-error: var(--red);
+  --invite-error-bg: var(--red-bg);
+  --invite-secondary-bg: var(--bg-muted);
+  --invite-selected: var(--bg-muted);
+}
+:global(html[data-theme='dark']) .backdrop { background: var(--scrim-tint); }
+:global(html[data-theme='dark']) .panel { box-shadow: var(--shadow-lg); }
+:global(html[data-theme='dark']) .tooltip { background: var(--bg-muted); color: var(--text-strong); box-shadow: var(--shadow-md); }
+:global(html[data-theme='dark']) .tooltip::after { border-top-color: var(--bg-muted); }
+:global(html[data-theme='dark']) .menu { box-shadow: var(--shadow-md); }
+/* Submit: accent fill with dark ink, like every primary control in dark. */
+:global(html[data-theme='dark']) .submit { background: var(--accent); color: var(--accent-contrast); }
+:global(html[data-theme='dark']) .root .submit:is(:hover,:active):not(:disabled) { background: var(--accent-hover); color: var(--accent-contrast); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .submit:disabled { background: var(--accent); color: var(--accent-contrast); }
+:global(html[data-theme='dark']) .onboarding .submit:disabled { background: var(--bg-muted); color: var(--text-faint); }
+:global(html[data-theme='dark']) .onboarding .submit:is(:hover,:active):not(:disabled) { background: var(--accent-hover); color: var(--accent-contrast); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .submit:hover:not(:disabled) { background: var(--accent-hover); }
+:global(html[data-theme='dark']) .root .skip:is(:hover,:active):not(:disabled) { color: var(--text-muted); }
+:global(html[data-theme='dark']) .onboarding { background: var(--bg); }
+:global(html[data-theme='dark']) .onboarding .context { color: var(--text-muted); }
+:global(html[data-theme='dark']) .onboarding .labels > span { color: var(--text-muted); }
+:global(html[data-theme='dark']) .onboarding .rows::-webkit-scrollbar-thumb { background: var(--border-selected); }
+:global(html[data-theme='dark']) .onboarding .input { background: var(--bg-panel); color: var(--text); }
+:global(html[data-theme='dark']) .onboarding .role:not(:disabled),
+:global(html[data-theme='dark']) .onboarding .role:is(:hover,:active):not(:disabled) { color: var(--text); border-color: var(--border-strong); }
+:global(html[data-theme='dark']) .onboarding .input::placeholder { color: var(--text-faint); }
+:global(html[data-theme='dark']) .onboarding .add { color: var(--text-muted); }
+:global(html[data-theme='dark']) .onboarding .skip { color: var(--text-soft); }
+:global(html[data-theme='dark']) .onboarding .lineError,
+:global(html[data-theme='dark']) .onboarding .error,
+:global(html[data-theme='dark']) .onboarding .summary { color: var(--red); }
+:global(html[data-theme='dark']) .onboarding .input[aria-invalid=true] { border-color: var(--red); background: var(--red-bg); }
+:global(html[data-theme='dark']) .onboardingFooter { color: var(--text-faint); }
+:global(html[data-theme='dark']) .languagePicker { border-color: var(--border); background: var(--bg-subtle); color: var(--text-muted); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .input::placeholder { color: var(--text-faint); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .cancel:disabled { color: var(--text); }
+:global(html[data-theme='dark']) .onboarding .role:disabled { background: var(--bg-elevated); color: var(--text-faint); border-color: var(--border); }
+:global(html[data-theme='dark']) .onboarding .remove:disabled { color: var(--text-faint); }
+:global(html[data-theme='dark']) .onboarding .add:disabled { color: var(--text-muted); }
+:global(html[data-theme='dark']) .onboarding .skip:disabled { color: var(--text-soft); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .cancel { color: var(--text); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .role svg { color: var(--text-soft); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .labels { color: var(--text-muted); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .close { color: var(--text); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .lineError,
+:global(html[data-theme='dark']) .root:not(.onboarding) .error { color: var(--red); }
+:global(html[data-theme='dark']) .dialogMenu .option[data-highlighted=true] { background: var(--bg-muted); }
+:global(html[data-theme='dark']) .dialogMenu .check { color: var(--text-muted); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .close:disabled { color: var(--text); }
+:global(html[data-theme='dark']) .completeIcon { color: var(--green); background: var(--green-bg); }
+:global(html[data-theme='dark']) .complete h2 { color: var(--text-strong); }
+:global(html[data-theme='dark']) .complete p { color: var(--text-muted); }
+:global(html[data-theme='dark']) .complete .completeEnter { background: var(--accent); color: var(--accent-contrast); }
+:global(html[data-theme='dark']) .complete .completeEnter:hover { background: var(--accent-hover); }
+:global(html[data-theme='dark']) .complete .completeEnter:focus-visible { outline-color: var(--accent); }
+:global(html[data-theme='dark']) .complete .countdown { color: var(--text-faint); }
+:global(html[data-theme='dark']) .onboardingMenu { border-color: var(--border); box-shadow: var(--shadow-md); }
+:global(html[data-theme='dark']) .onboardingMenu .option { color: var(--text); }
+:global(html[data-theme='dark']) .onboardingMenu .option small,
+:global(html[data-theme='dark']) .onboardingMenu .option > svg { color: var(--text-muted); }
+:global(html[data-theme='dark']) .onboarding .input:focus:not([aria-invalid=true]) { border-color: var(--border-strong); }
+:global(html[data-theme='dark']) .onboarding .role:focus-visible { border-color: var(--border-strong); outline-color: var(--text-soft); }
+:global(html[data-theme='dark']) .onboarding .add:is(:hover,:active):not(:disabled) { color: var(--text-muted); }
+:global(html[data-theme='dark']) .onboardingMenu .option[aria-selected=true]:not(:disabled),
+:global(html[data-theme='dark']) .onboardingMenu .option:is(:hover,:active):not(:disabled) { color: var(--text-strong); }
+:global(html[data-theme='dark']) .onboarding .skip:is(:hover,:active):not(:disabled) { color: var(--text-soft); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .cancel:hover:not(:disabled) { background: var(--border-strong); color: var(--text-strong); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .close:hover:not(:disabled),
+:global(html[data-theme='dark']) .root:not(.onboarding) .remove:hover:not(:disabled) { background: var(--bg-muted); color: var(--text-strong); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .info:focus-visible { outline-color: var(--border-selected); }
+:global(html[data-theme='dark']) .root:not(.onboarding) .role[data-menu-keyboard=true] { border-color: var(--text-faint); }

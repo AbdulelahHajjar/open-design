@@ -285,3 +285,29 @@
   padding: 12px 18px 16px;
   border-top: 1px solid var(--border);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+:global(html[data-theme='dark']) .chipActive {
+  background: var(--selected);
+  border-color: var(--selected);
+  color: var(--accent-contrast);
+}
+/* The white-mixed shimmer band flares on the dark thumb ground. */
+:global(html[data-theme='dark']) .thumbSkeleton {
+  background-image: linear-gradient(
+    100deg,
+    var(--bg-subtle) 30%,
+    var(--bg-muted) 50%,
+    var(--bg-subtle) 70%
+  );
+}
+/* A dark glass badge, with the per-kind tint (set inline, tuned for white)
+   lifted toward the foreground so dark tints such as Font stay readable. */
+:global(html[data-theme='dark']) .kindBadge {
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  color: color-mix(in srgb, var(--kind-tint) 50%, var(--text-strong));
+  box-shadow: var(--shadow-sm);
+}
+:global(html[data-theme='dark']) .check {
+  color: var(--accent-contrast);
+}

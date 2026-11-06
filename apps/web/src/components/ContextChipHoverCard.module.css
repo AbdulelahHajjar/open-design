@@ -48,3 +48,11 @@
     transform: translateY(0);
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* A hover card: raised surface, and the elevation token in place of the
+   black-only shadow that disappears on near-black. */
+:global(html[data-theme='dark']) .card {
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+}

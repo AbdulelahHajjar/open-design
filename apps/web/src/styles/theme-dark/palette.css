@@ -1,0 +1,31 @@
+/* Ghostty palette — the source every dark-theme color derives from.
+
+   Taken verbatim from the "Ghostty iTerm2 Dark" terminal theme: background,
+   foreground, cursor, selection, and the 16 ANSI slots (0–7 normal, 8–15
+   bright). Only this file and `tokens.css` may contain color literals; every
+   other dark-theme rule reads a token (see README.md). */
+:where(html)[data-theme='dark'] {
+  --ghostty-bg: #05080d;
+  --ghostty-fg: #dcdcdc;
+  --ghostty-cursor: #ffffff;
+  --ghostty-cursor-text: #000000;
+  --ghostty-selection-bg: #bad6fb;
+  --ghostty-selection-fg: #000000;
+
+  --ghostty-0: #15191e; /* black */
+  --ghostty-1: #a64532; /* red */
+  --ghostty-2: #57bf38; /* green */
+  --ghostty-3: #c6c43f; /* yellow */
+  --ghostty-4: #2e43c0; /* blue */
+  --ghostty-5: #b249b8; /* magenta */
+  --ghostty-6: #59c2c5; /* cyan */
+  --ghostty-7: #c7c7c7; /* white */
+  --ghostty-8: #686868; /* bright black */
+  --ghostty-9: #d07e78; /* bright red */
+  --ghostty-10: #82e498; /* bright green */
+  --ghostty-11: #eae14a; /* bright yellow */
+  --ghostty-12: #a8abed; /* bright blue */
+  --ghostty-13: #d483dc; /* bright magenta */
+  --ghostty-14: #8efafd; /* bright cyan */
+  --ghostty-15: #ffffff; /* bright white */
+}

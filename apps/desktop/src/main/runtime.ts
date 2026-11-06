@@ -940,7 +940,10 @@ const MAC_WINDOW_CHROME_CSS = `
   }
 `;
 
-// Light-background startup splash shown while the web runtime boots. It runs the
+/** The dark splash ground: the web app's dark `--bg` (the Ghostty background). */
+const SPLASH_DARK_BACKGROUND = "#05080d";
+
+// Startup splash shown while the web runtime boots, light or dark with the OS. It runs the
 // Home hero's pixel-scan wordmark — the same shader, ported to plain WebGL and
 // inlined (logo art included) because the splash is up before any HTTP origin
 // exists (see `splash-pixel-scan.ts`). The sweep LOOPS: boots vary from two
@@ -968,6 +971,9 @@ function createPendingHtml(): string {
         justify-content: center;
       }
 ${SPLASH_PIXEL_SCAN_STYLE}
+      :root {
+        color-scheme: light dark;
+      }
       .boot-stage {
         bottom: 56px;
         color: #7a838a;
@@ -1016,6 +1022,30 @@ ${SPLASH_PIXEL_SCAN_STYLE}
       @keyframes boot-dot {
         0%, 60%, 100% { opacity: 0.25; }
         30% { opacity: 1; }
+      }
+      /* Dark OS: the web app's dark theme ground (the Ghostty palette), with the
+         near-black wordmark inverted so it reads light; hue-rotate keeps the
+         scan's brand greens green. */
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background: ${SPLASH_DARK_BACKGROUND};
+        }
+        #splash-logo canvas {
+          filter: invert(1) hue-rotate(180deg);
+        }
+        .boot-stage {
+          color: #959ba4;
+        }
+        .boot-stage-step {
+          color: #7d838c;
+        }
+        .boot-progress {
+          background: rgba(220, 220, 220, 0.12);
+        }
+        .boot-progress-fill {
+          background: #959ba4;
+        }
       }
     </style>
   </head>
@@ -1493,19 +1523,16 @@ export type SplashWindowHandle = {
 };
 
 /**
- * Pin Electron's native appearance to light.
+ * Let Electron's native appearance follow the OS until the renderer reports
+ * the user's theme preference over `od:appearance:set-theme`.
  *
- * The app has one theme now, so `themeSource` is not a preference to sync — it
- * is a constant. Leaving it at Electron's `system` default lets a dark-mode OS
- * colour everything the web layer does not own: the macOS vibrancy glass
- * (`vibrancy: "under-window"`), native menus and dialogs, and the renderer's
- * own `prefers-color-scheme` before `data-theme` is stamped.
- *
- * Idempotent, so both the splash path and the `od:appearance:set-theme` handler
- * can call it.
+ * The preference lives in the renderer's storage, which main cannot read
+ * before the first window loads, and the default preference is System — so
+ * following the OS is the right first paint for most users. A user who pinned
+ * Light or Dark sees the OS appearance only on the splash.
  */
-export function pinNativeAppearanceToLight(): void {
-  nativeTheme.themeSource = "light";
+export function followSystemNativeAppearance(): void {
+  nativeTheme.themeSource = "system";
 }
 
 /**
@@ -1517,17 +1544,15 @@ export function pinNativeAppearanceToLight(): void {
  * + matching size so the reveal swap reads as a single window, never a flash.
  */
 export function createSplashWindow(): SplashWindowHandle {
-  // OpenDesign ships light-only (the theme setting was removed), so pin the
-  // native appearance before the first window exists. Electron defaults
-  // `themeSource` to `system`, which paints the macOS vibrancy glass and the
-  // native chrome dark on a dark-mode Mac — visible on the splash and again in
-  // the gap before the renderer's `od:appearance:set-theme` lands.
-  pinNativeAppearanceToLight();
+  // The splash paints before the renderer can report the theme preference, so
+  // it follows the OS (see followSystemNativeAppearance); its page carries a
+  // dark variant for a dark OS.
+  followSystemNativeAppearance();
   // Stamp creation time at the instant the window appears (see SplashWindowHandle).
   const startedAt = Date.now();
   const splash = new BrowserWindow({
     autoHideMenuBar: true,
-    backgroundColor: "#f2f4f5",
+    backgroundColor: nativeTheme.shouldUseDarkColors ? SPLASH_DARK_BACKGROUND : "#f2f4f5",
     frame: false,
     height: 900,
     resizable: false,
@@ -2640,13 +2665,13 @@ export async function createDesktopRuntime(options: DesktopRuntimeOptions): Prom
   ipcMain.on("od:appearance:set-theme", (event, theme: unknown) => {
     if (window.isDestroyed() || event.sender !== window.webContents) return;
     if (theme !== "light" && theme !== "dark" && theme !== "system") return;
-    // Pin the native appearance to the app theme. The macOS frosted window
-    // (vibrancy: under-window) draws its glass in the SYSTEM appearance by
-    // default, so a light app over a dark OS sat on dark glass and read as a
-    // muddy gray (#94); forcing the native theme keeps the glass material in
-    // step with the app's tokens. The host protocol still carries all three
-    // values as generic infrastructure, but the app ships light-only, so this
-    // is the same value `pinNativeAppearanceToLight` already set at startup.
+    // Keep the native appearance on the app's theme preference. The macOS
+    // frosted window (vibrancy: under-window) draws its glass in the native
+    // appearance, so a light app over dark glass reads as a muddy gray (#94),
+    // and native menus and dialogs follow it too. `system` tracks the OS, as
+    // the renderer does for the System preference. Offscreen export windows
+    // pin their own light scheme (export-color-scheme.ts), so this never
+    // reaches an exported design.
     nativeTheme.themeSource = theme;
   });
 

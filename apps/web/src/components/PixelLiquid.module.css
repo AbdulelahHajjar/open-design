@@ -14,3 +14,11 @@
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The liquid is painted from a pale-green-to-neon ramp (runtime/pixel-liquid.ts)
+   that reads as a light patch on a dark tile. Inverting lightness and turning
+   the hue back keeps it green and makes the field dark. */
+:global(html[data-theme='dark']) .liquid {
+  filter: invert(1) hue-rotate(180deg);
+}

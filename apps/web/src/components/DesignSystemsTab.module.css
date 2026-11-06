@@ -1846,3 +1846,20 @@
     height: 30px;
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Selected sidebar row: a hard-coded light card in light. Here it is one step
+   above the hover fill, with a visible edge. */
+:global(html[data-theme='dark']) .itemRowActive,
+:global(html[data-theme='dark']) .itemRowActive:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-subtle);
+}
+/* Publish switch knob: muted on the dark off-track, bright on the lighter
+   on-track. */
+:global(html[data-theme='dark']) .statusToggleTrack::after {
+  background: var(--text-muted);
+}
+:global(html[data-theme='dark']) .statusToggleOn .statusToggleTrack::after {
+  background: var(--text-strong);
+}

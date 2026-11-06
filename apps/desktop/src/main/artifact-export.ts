@@ -14,6 +14,7 @@ import {
 import { DECK_PAGE_SIZE, DECK_PRINT_CSS, inferPageSize, waitForPrintableContent } from "./pdf-export.js";
 import { bgraBitmapHasPaint, freezePageForStaticCapture, type StaticCaptureFreeze } from "./static-capture.js";
 import { findRealElementRange, findRealTagEnd, findRealTagOffset, HTML_TAG_PATTERNS } from '@open-design/contracts/runtime/html-injection-points';
+import { loadInLightColorScheme } from "./export-color-scheme.js";
 
 // Headless programmatic exporter for the `od export` CLI (PDF / image).
 // The on-screen web Download menu rasterizes client-side; this is the daemon →
@@ -89,7 +90,8 @@ export async function exportArtifact(
   try {
     window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
     window.webContents.on("will-navigate", (event) => event.preventDefault());
-    await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(buildDocument(input))}`);
+    const url = `data:text/html;charset=utf-8,${encodeURIComponent(buildDocument(input))}`;
+    await loadInLightColorScheme(window, () => window.loadURL(url));
 
     if (thumbnail) return await renderFirstViewportThumbnail(window, input, { height, width });
 

@@ -154,3 +154,11 @@ button.dismiss:hover { color: var(--text-strong); }
    `p` in the selector out-specifies `.row`'s own margin:0 regardless of CSS
    Module file/import order. */
 .error p { margin-top: 8px; }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The card is a popover: raised surface rather than the recessed panel. The
+   hero artwork stays as drawn (it is already dark). */
+:global(html[data-theme='dark']) .guide { background: var(--bg-elevated); }
+/* --share-white is the dark card ground in dark, so it can no longer be the
+   hover ink of a close button sitting on the dark hero. */
+:global(html[data-theme='dark']) button.close:hover { color: var(--text-strong); }

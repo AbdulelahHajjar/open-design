@@ -126,3 +126,19 @@
   outline: 2px solid rgba(255, 255, 255, 0.7);
   outline-offset: 2px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The pill keeps its --share-surface-dark ground, but --share-white (its ink)
+   is the dark card ground in dark: text, action and hovers move to light ink.
+   Solid success/error badges keep their dark glyph; the translucent loading
+   badge needs a light one. */
+:global(html[data-theme='dark']) .toast {
+  color: var(--text-strong);
+  box-shadow: var(--shadow-md);
+}
+:global(html[data-theme='dark']) .badge.loading { color: var(--text-strong); }
+:global(html[data-theme='dark']) .details { color: var(--text-muted); }
+:global(html[data-theme='dark']) .action { color: var(--text-strong); }
+:global(html[data-theme='dark']) .action:hover { color: var(--text); }
+:global(html[data-theme='dark']) .close { color: var(--text-muted); }
+:global(html[data-theme='dark']) .close:hover { color: var(--text-strong); }

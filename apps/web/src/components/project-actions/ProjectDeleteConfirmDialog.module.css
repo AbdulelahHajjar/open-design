@@ -49,3 +49,11 @@
 }
 
 .activeShareDialog .activeShareFooter button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Cancel pins a pale grey (#EDEDF0) fill with #333 ink. */
+:global(html[data-theme='dark']) .activeShareDialog:global(.modal-confirm) .activeShareFooter:global(.row) :global(button).activeShareCancel {
+  background: var(--bg-muted);
+  border-color: var(--bg-muted);
+  color: var(--text);
+}

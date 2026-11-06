@@ -1,0 +1,488 @@
+/* Dark theme overrides: viewer. See README.md for the rules.
+
+   Covers every stylesheet under `styles/viewer/`. Left as upstream on purpose:
+   - Surfaces that are already dark: presentation mode (`.present-*`), the deck
+     thumbnail rail and floating deck nav, the dark glass pills that float over
+     artwork (`.artifact-card-act`, `.example-preview-overlay`,
+     `.plugin-trust-badge--overlay`), the screenshot toast, MemoryToast and the
+     draw-overlay toolbars.
+   - Authored content and its paper: white canvases under iframes, images,
+     sketches and design-system previews, and the `.qf-visual-preview`
+     style palettes, which illustrate a design style rather than paint chrome.
+   - Edit overlays drawn on top of the (light) design canvas: comment target
+     outlines and pins, board strokes, the manual-edit hover handle.
+   - Brand and media colors: share-platform marks, macOS traffic lights.
+   - Low-alpha status tints (memory banners, extraction-card borders, run
+     dots) that already read as dim tints on the dark ground. */
+
+/* ── viewer/core.css ─────────────────────────────────────────────────── */
+
+/* Primary toolbar action: upstream white ink sits on the accent, which is a
+   light color here. */
+html[data-theme='dark'] .viewer-action.primary,
+html[data-theme='dark'] .viewer-action.primary:hover:not(:disabled) {
+  color: var(--accent-contrast);
+}
+
+/* Icon-button tooltips invert the neutral (--text ground, --bg-panel ink),
+   which reads as a light chip on dark. Match the shared `.od-tooltip-layer`. */
+html[data-theme='dark'] .viewer-action-icon:not(.od-tooltip)[data-tooltip]::after,
+html[data-theme='dark'] .viewer-comment-count-trigger:not(.od-tooltip)[data-tooltip]::after {
+  background: var(--bg-elevated);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-md);
+}
+
+html[data-theme='dark'] .viewer-action.viewer-comment-count-trigger,
+html[data-theme='dark'] .viewer-action.viewer-comment-count-trigger:hover:not(:disabled) {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+html[data-theme='dark'] .viewer-action.viewer-comment-count-trigger.active,
+html[data-theme='dark'] .viewer-action.viewer-comment-count-trigger.active:hover:not(:disabled) {
+  background: var(--bg-muted);
+  color: var(--text-strong);
+}
+
+/* Loading skeleton: the white inset rim and the 34% white sweep flare on a
+   dark card. */
+html[data-theme='dark'] .viewer-loading-card-main {
+  box-shadow: var(--shadow-md), 0 1px 0 var(--bg-fill-tertiary) inset;
+}
+html[data-theme='dark'] .viewer-loading-card-main::before {
+  background-image: linear-gradient(
+    90deg,
+    transparent 35%,
+    var(--bg-fill-tertiary) 50%,
+    transparent 65%
+  );
+}
+
+html[data-theme='dark'] .live-artifact-badge.refresh-status.tone-running {
+  color: var(--blue);
+  border-color: var(--blue-border);
+  background: var(--blue-bg);
+}
+html[data-theme='dark'] .live-artifact-refresh-event.tone-running .live-artifact-refresh-event-dot {
+  background: var(--blue);
+}
+
+html[data-theme='dark'] .preview-asset-warning {
+  border-color: var(--amber-border);
+  background: var(--amber-bg);
+}
+html[data-theme='dark'] .preview-asset-warning strong {
+  color: var(--amber);
+}
+
+html[data-theme='dark'] .comment-popover-readonly-note {
+  color: var(--text-soft);
+}
+
+/* Comment side panel: upstream paints it with light-grey literals. `:where()`
+   keeps the base override one step above upstream's base rule and below
+   `.comment-float-host > .comment-side-panel` (shell.css), which clears the
+   panel's own fill and border when it is hosted in the floating card. */
+html[data-theme='dark'] :where(.comment-side-panel) {
+  background: var(--bg-panel);
+  border-color: var(--border);
+  color: var(--text);
+}
+html[data-theme='dark'] .comment-side-header,
+html[data-theme='dark'] .comment-side-selectbar {
+  border-color: var(--border-soft);
+  background: var(--bg-panel);
+}
+html[data-theme='dark'] .comment-side-title,
+html[data-theme='dark'] .comment-side-author strong,
+html[data-theme='dark'] .comment-side-selectbar .ghost {
+  color: var(--text-strong);
+}
+html[data-theme='dark'] .comment-side-toolbar,
+html[data-theme='dark'] .comment-side-select-all,
+html[data-theme='dark'] .comment-side-selectcount,
+html[data-theme='dark'] .comment-side-author small {
+  color: var(--text-soft);
+}
+html[data-theme='dark'] .comment-side-time {
+  color: var(--text-faint);
+}
+html[data-theme='dark'] .comment-side-item,
+html[data-theme='dark'] .comment-side-body {
+  color: var(--text);
+}
+html[data-theme='dark'] .comment-side-item.selected,
+html[data-theme='dark'] .comment-side-item.active {
+  background: var(--bg-subtle);
+}
+html[data-theme='dark'] .comment-side-check {
+  border-color: var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .comment-side-check.checked {
+  border-color: var(--selected);
+  background: var(--selected);
+}
+/* Sending state inverts the neutral (--text ground) into a light chip. */
+html[data-theme='dark'] .comment-side-new-comment .composer-send.is-sending:disabled {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* ── viewer/code.css ─────────────────────────────────────────────────── */
+
+html[data-theme='dark'] .markdown-status-error {
+  border-color: var(--red-border);
+  color: var(--red);
+}
+html[data-theme='dark'] .markdown-autosave-error {
+  color: var(--red);
+}
+html[data-theme='dark'] .sketch-tool.active,
+html[data-theme='dark'] .chat-connect-repo-icon,
+html[data-theme='dark'] .prose-block .md-task-check {
+  color: var(--accent-contrast);
+}
+
+/* ── viewer/tools.css ────────────────────────────────────────────────── */
+
+html[data-theme='dark'] .file-ops-badge--write {
+  color: var(--green);
+  border-color: var(--green-border);
+  background: var(--green-bg);
+}
+html[data-theme='dark'] .file-ops-badge--edit {
+  color: var(--amber);
+  border-color: var(--amber-border);
+  background: var(--amber-bg);
+}
+html[data-theme='dark'] .file-ops-badge--delete {
+  color: var(--red);
+  border-color: var(--red-border);
+  background: var(--red-bg);
+}
+html[data-theme='dark'] .file-ops-row-status--error {
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+/* Shell command blocks: upstream's warm near-black terminal, moved onto the
+   Ghostty grounds (the output still sits one step lighter than the command). */
+html[data-theme='dark'] .op-bash .op-command,
+html[data-theme='dark'] .op-bash .op-output {
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+html[data-theme='dark'] .op-bash .op-output {
+  background: var(--bg-muted);
+}
+
+html[data-theme='dark'] .viewer-action-export,
+html[data-theme='dark'] .viewer-action-export:hover:not(:disabled) {
+  color: var(--accent-contrast);
+}
+
+/* The inline variant keeps its own neutral treatment. */
+html[data-theme='dark'] .field-status-badge:not(.field-status-badge--inline) {
+  color: var(--green);
+  background: var(--green-bg);
+  border-color: var(--green-border);
+}
+
+/* ── viewer/composio.css ─────────────────────────────────────────────── */
+
+html[data-theme='dark'] .deploy-result-block.delayed {
+  border-color: var(--amber-border);
+}
+html[data-theme='dark'] .deploy-result-block.protected,
+html[data-theme='dark'] .deploy-result-block.failed {
+  border-color: var(--red-border);
+}
+html[data-theme='dark'] .deploy-result-badge.ready,
+html[data-theme='dark'] .deploy-result-link-state.ready {
+  color: var(--green);
+}
+html[data-theme='dark'] .deploy-result-badge.delayed,
+html[data-theme='dark'] .deploy-result-link-state.delayed {
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-color: var(--amber-border);
+}
+html[data-theme='dark'] .deploy-result-badge.protected,
+html[data-theme='dark'] .deploy-result-badge.failed,
+html[data-theme='dark'] .deploy-result-link-state.protected,
+html[data-theme='dark'] .deploy-result-link-state.failed {
+  color: var(--red);
+  background: var(--red-bg);
+  border-color: var(--red-border);
+}
+
+html[data-theme='dark'] .questions-panel-error {
+  color: var(--red);
+}
+html[data-theme='dark'] .questions-continue {
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .questions-continue-spinner {
+  border-color: color-mix(in srgb, var(--accent-contrast) 35%, transparent);
+  border-top-color: var(--accent-contrast);
+}
+
+html[data-theme='dark'] .ds-modal-primary-action,
+html[data-theme='dark'] .chat-history-badge {
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .ds-modal-primary-action-caret {
+  border-left-color: color-mix(in srgb, var(--accent-contrast) 30%, transparent);
+}
+
+/* DESIGN.md source pane: upstream's syntax tints are tuned for a white pane;
+   several (#353535 tables, #0f766e code) vanish on dark. Ghostty's ANSI
+   slots are the terminal's own syntax palette. */
+html[data-theme='dark'] .design-spec-line.is-h1 {
+  color: var(--blue);
+}
+html[data-theme='dark'] .design-spec-line.is-h2 {
+  color: var(--ghostty-14);
+}
+html[data-theme='dark'] .design-spec-line.is-h3,
+html[data-theme='dark'] .md-tk-code {
+  color: var(--ghostty-6);
+}
+html[data-theme='dark'] .design-spec-line.is-h4 {
+  color: var(--green);
+}
+html[data-theme='dark'] .design-spec-line.is-quote {
+  color: var(--text-soft);
+}
+html[data-theme='dark'] .design-spec-line.is-table {
+  color: var(--text-muted);
+}
+html[data-theme='dark'] .design-spec-line.is-fence {
+  color: var(--red);
+}
+html[data-theme='dark'] .md-tk-color {
+  color: var(--ghostty-13);
+}
+html[data-theme='dark'] .md-tk-color-swatch {
+  border-color: color-mix(in srgb, var(--text) 28%, transparent);
+}
+
+/* ── viewer/memory.css ───────────────────────────────────────────────── */
+
+html[data-theme='dark'] .memory-extraction-pill.is-running {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+html[data-theme='dark'] .memory-extraction-pill.is-success {
+  background: var(--green-bg);
+  color: var(--green);
+}
+html[data-theme='dark'] .memory-extraction-pill.is-failed {
+  background: var(--red-bg);
+  color: var(--red);
+}
+html[data-theme='dark'] .memory-extraction-failure {
+  border-color: var(--red-border);
+  background: var(--red-bg);
+}
+html[data-theme='dark'] .memory-flash-pill {
+  background: var(--green-bg);
+  border-color: var(--green-border);
+}
+
+html[data-theme='dark'] .library-install-submit {
+  color: var(--accent-contrast);
+}
+
+/* Memory toggle: the off track (--border) disappears on the panel, and the
+   white knob loses its contrast on the light brand-green on track. */
+html[data-theme='dark'] .toggle-slider {
+  background-color: var(--border-strong);
+}
+html[data-theme='dark'] .toggle-slider::before {
+  background-color: var(--text);
+}
+html[data-theme='dark'] .toggle-switch input:checked + .toggle-slider::before {
+  background-color: var(--accent-contrast);
+}
+html[data-theme='dark'] .settings-privacy-toggles .toggle-row.on .toggle-row-switch::after {
+  background: var(--accent-contrast);
+}
+
+/* ── viewer/library.css ──────────────────────────────────────────────── */
+
+html[data-theme='dark'] .library-card-delete:hover {
+  background: var(--red-bg);
+  color: var(--red);
+}
+html[data-theme='dark'] .library-import-error {
+  color: var(--red);
+}
+html[data-theme='dark'] .memory-connector-selected-mark,
+html[data-theme='dark'] .memory-connector-picker.is-selected .memory-connector-picker-box {
+  color: var(--accent-contrast);
+}
+
+/* ── viewer/routines.css ─────────────────────────────────────────────── */
+
+/* Toast: upstream paints --text-strong at 78% under --bg ink, an inverted
+   chip that turns into a large light capsule on dark. `:where()` keeps this
+   below the tone and anchor variants (success, error, design-systems), which
+   carry their own fills. */
+html[data-theme='dark'] :where(.od-toast) {
+  background: color-mix(in srgb, var(--bg-muted) 90%, transparent);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-md);
+}
+html[data-theme='dark'] .od-toast.od-toast-browser-snapshot {
+  box-shadow: var(--shadow-lg);
+}
+html[data-theme='dark'] .od-toast:not(.tone-success):not(.tone-error) .od-toast-close {
+  border-color: var(--border-strong);
+  background: var(--bg-fill-secondary);
+  color: var(--text);
+}
+html[data-theme='dark'] .od-toast:not(.tone-success):not(.tone-error) .od-toast-close:hover {
+  border-color: var(--border-selected);
+  background: var(--bg-fill);
+}
+/* Restores the design-systems toast's green close disc, which the neutral
+   rule above would otherwise out-rank. */
+html[data-theme='dark'] .design-systems-toast-anchor .od-toast:not(.tone-success):not(.tone-error) .od-toast-close {
+  border-color: color-mix(in srgb, var(--green) 26%, transparent);
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+  color: inherit;
+}
+html[data-theme='dark'] .od-toast-dismiss {
+  border-color: var(--border-strong);
+  background: var(--bg-fill-secondary);
+  color: var(--text);
+}
+html[data-theme='dark'] .od-toast-dismiss:hover {
+  background: var(--bg-fill);
+}
+
+html[data-theme='dark'] .routines-item-error,
+html[data-theme='dark'] .routines-history-error {
+  color: var(--red);
+}
+html[data-theme='dark'] .routines-history-link:hover {
+  background: var(--bg-muted);
+  border-color: var(--border-selected);
+  color: var(--text-strong);
+}
+/* Selected chips: upstream's inverted neutral becomes the selected token. */
+html[data-theme='dark'] .routines-weekday.active {
+  background: var(--selected);
+  border-color: var(--selected);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .app .handoff-framework-chip.active {
+  background: var(--selected);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .app .handoff-framework-chip.active:hover {
+  background: var(--accent-hover);
+  color: var(--accent-contrast);
+}
+
+html[data-theme='dark'] .routines-status-running {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+html[data-theme='dark'] .routines-status-queued,
+html[data-theme='dark'] .routines-status-canceled {
+  background: var(--bg-muted);
+}
+html[data-theme='dark'] .routines-status-succeeded {
+  background: var(--green-bg);
+  color: var(--green);
+}
+html[data-theme='dark'] .routines-status-failed {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+/* Pre-hydration active-tab pill (the glide pill replaces it once ready). */
+html[data-theme='dark'] .workspace-shell .workspace-tab.is-active {
+  background: var(--bg-elevated);
+}
+
+/* Design Files panel inside the project shell: hard-coded white grounds. */
+html[data-theme='dark'] .app .df-panel,
+html[data-theme='dark'] .app .df-main,
+html[data-theme='dark'] .app .df-body {
+  background: var(--bg);
+}
+
+/* ── viewer/templates-plugins.css ────────────────────────────────────── */
+
+html[data-theme='dark'] .mcp-error {
+  border-color: var(--red-border);
+  background: var(--red-bg);
+  color: var(--red);
+}
+html[data-theme='dark'] .mcp-agent-support-unsupported {
+  color: var(--red);
+}
+html[data-theme='dark'] .mcp-oauth-error {
+  background: var(--red-bg);
+  color: var(--red);
+}
+html[data-theme='dark'] .plugin-loop-home__submit,
+html[data-theme='dark'] .plugin-details-modal__primary {
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .plugin-details-modal__use-caret {
+  border-left-color: color-mix(in srgb, var(--accent-contrast) 30%, transparent);
+}
+html[data-theme='dark'] .plugin-loop-home__error {
+  color: var(--red);
+}
+
+/* Input/step badges: upstream's dark ink on pale tints. */
+html[data-theme='dark'] .plugin-details-modal__badge.is-required {
+  background: var(--red-bg);
+  color: var(--red);
+}
+html[data-theme='dark'] .plugin-details-modal__badge.is-type {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+html[data-theme='dark'] .plugin-details-modal__badge.is-primary {
+  background: var(--green-bg);
+  color: var(--green);
+}
+html[data-theme='dark'] .plugin-details-modal__badge.is-repeat {
+  background: color-mix(in srgb, var(--ghostty-5) 20%, var(--bg-panel));
+  color: var(--ghostty-13);
+}
+html[data-theme='dark'] .plugin-details-modal__badge.is-failure {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+html[data-theme='dark'] .plugin-details-modal__atom.is-cap {
+  border-color: color-mix(in srgb, var(--ghostty-13) 30%, var(--border));
+  background: color-mix(in srgb, var(--ghostty-5) 14%, var(--bg-subtle));
+  color: var(--ghostty-13);
+}
+
+/* ── viewer/plugin-rail.css ──────────────────────────────────────────── */
+
+html[data-theme='dark'] .inline-plugins-rail__error {
+  color: var(--red);
+}
+
+/* ── viewer/theater.css ──────────────────────────────────────────────── */
+
+/* "Coming soon" hints: a near-black bubble with no edge melts into the dark
+   toolbar. Match the shared tooltip surface. */
+html[data-theme='dark'] .viewer-action[data-coming-soon='true']::after,
+html[data-theme='dark'] .viewer-toggle[data-coming-soon='true']::after {
+  background: var(--bg-elevated);
+  color: var(--text-strong);
+  box-shadow: var(--shadow-md);
+}

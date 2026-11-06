@@ -155,3 +155,11 @@
 .swatch:hover {
   transform: scale(1.1);
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The slate transparency checker vanishes on the dark popover. */
+:global(html[data-theme='dark']) .alphaTrack {
+  background-image:
+    linear-gradient(45deg, var(--bg-fill) 25%, transparent 25%, transparent 75%, var(--bg-fill) 75%),
+    linear-gradient(45deg, var(--bg-fill) 25%, transparent 25%, transparent 75%, var(--bg-fill) 75%);
+}

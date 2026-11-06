@@ -4,6 +4,7 @@ import {
 	ensureWebTouchpointElement,
 	emitWebTouchpointDiagnostic,
 	hasWebTouchpointCloseControl,
+	currentWebTouchpointTheme,
 	readWebTouchpointHostContext,
 	verifyWebTouchpoint,
 	webTouchpointContext,
@@ -1056,9 +1057,7 @@ export function mountTouchpoint(
 				adapter.content,
 				readWebTouchpointHostContext(
 					adapter.locale,
-					document.documentElement.classList.contains("dark")
-						? "dark"
-						: "light",
+					currentWebTouchpointTheme(),
 				),
 			);
 			if (!context) {

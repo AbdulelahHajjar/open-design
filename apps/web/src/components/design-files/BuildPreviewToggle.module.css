@@ -70,3 +70,13 @@
     transition: none;
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The fixed light knob vanishes on the light accent on-track; the knob takes the
+   accent ink when on and a muted tone on the dark off-track. */
+:global(html[data-theme='dark']) .knob {
+  background: var(--text-muted);
+}
+:global(html[data-theme='dark']) .toggle[aria-checked='true'] .knob {
+  background: var(--accent-contrast);
+}

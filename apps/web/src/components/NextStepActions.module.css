@@ -600,3 +600,35 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The suggestion block and its hover cards sit one step above the pane, and
+   a hovered row lifts one step further (in light it dims onto the panel).
+   Edges drawn with the soft border, which vanishes on near-black, take the
+   regular one; the hover cards trade their black-only shadow for the
+   elevation token, which also draws a faint edge. */
+:global(html[data-theme='dark']) .root {
+  background: var(--bg-elevated);
+}
+:global(html[data-theme='dark']) .suggestions .suggestionRow:hover,
+:global(html[data-theme='dark']) .toolboxList .toolboxRow:hover:not(:disabled),
+:global(html[data-theme='dark']) .toolboxList .moreRow:hover:not(:disabled) {
+  background: var(--bg-subtle);
+}
+:global(html[data-theme='dark']) .quickPill,
+:global(html[data-theme='dark']) .openDesignButton,
+:global(html[data-theme='dark']) .openDesignButton:hover:not(:disabled) {
+  border-color: var(--border);
+}
+:global(html[data-theme='dark']) .divider {
+  background: var(--border);
+}
+:global(html[data-theme='dark']) .detail {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+}
+:global(html[data-theme='dark']) .flyout {
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+}

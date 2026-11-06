@@ -1361,7 +1361,7 @@ export function buildSandboxedPreviewDocument(
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeTitle}</title>
-  <style>html,body,iframe{margin:0;width:100%;height:100%;border:0}body{overflow:hidden;background:#fff}</style>
+  <style>html,body,iframe{margin:0;width:100%;height:100%;border:0;color-scheme:light}body{overflow:hidden;background:#fff}</style>
 </head>
 <body>
   <iframe title="${safeTitle}" sandbox="${sandbox}" srcdoc="${escapeHtmlAttribute(doc)}"></iframe>

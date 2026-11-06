@@ -271,3 +271,20 @@
     transform: translateX(-50%) scale(1);
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ──
+   Only the chrome bars follow the theme. The frame, handles, guides and crop
+   window are drawn on the (light) design canvas and keep their blue. */
+:global(html[data-theme='dark']) .actionButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+:global(html[data-theme='dark']) .actionButtonDanger:hover:not(:disabled) {
+  background: var(--red-bg);
+  color: var(--red);
+}
+:global(html[data-theme='dark']) .cropButtonPrimary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}

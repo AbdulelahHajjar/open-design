@@ -216,3 +216,19 @@
   background: color-mix(in srgb, #fff 55%, transparent);
   border-radius: 999px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The glint mixes the accent with white, and the text actions hover to a 55%
+   white wash; both are light patches on a dark card. */
+:global(html[data-theme='dark']) .primary::after {
+  background: linear-gradient(
+    105deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 30%, transparent),
+    transparent
+  );
+}
+:global(html[data-theme='dark']) .change:hover:not(:disabled),
+:global(html[data-theme='dark']) .tertiary:hover:not(:disabled) {
+  background: var(--bg-fill-secondary);
+}

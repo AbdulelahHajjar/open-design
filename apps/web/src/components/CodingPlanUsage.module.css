@@ -159,3 +159,14 @@ a.entry:focus-visible {
   outline: 2px solid #83df62;
   outline-offset: 4px;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The usage block always sits on the billing card, which is a raised dark
+   surface in dark: the white-alpha tracks and the neon fill move to tokens. */
+:global(html[data-theme='dark']) .period { color: var(--text-muted); }
+:global(html[data-theme='dark']) a.entry:focus-visible,
+:global(html[data-theme='dark']) .wallet:focus-visible { outline-color: var(--green); }
+:global(html[data-theme='dark']) .track { background: var(--bg-fill); }
+:global(html[data-theme='dark']) .fill { background: var(--green); }
+:global(html[data-theme='dark']) .bone { background: var(--bg-fill); }
+:global(html[data-theme='dark']) .walletWithQuota { border-top-color: var(--border); }

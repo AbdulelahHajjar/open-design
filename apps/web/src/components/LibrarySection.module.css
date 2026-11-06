@@ -757,3 +757,34 @@
     opacity: 1;
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* The white-mixed shimmer band flares on the dark thumb ground. */
+:global(html[data-theme='dark']) .thumbSkeleton {
+  background-image: linear-gradient(
+    100deg,
+    var(--bg-subtle) 30%,
+    var(--bg-muted) 50%,
+    var(--bg-subtle) 70%
+  );
+}
+/* A dark glass badge, with the per-kind tint (set inline, tuned for white)
+   lifted toward the foreground so dark tints such as Font stay readable. */
+:global(html[data-theme='dark']) .kindBadge {
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  color: color-mix(in srgb, var(--kind-tint) 50%, var(--text-strong));
+  box-shadow: var(--shadow-sm);
+}
+/* Source badges, the checked box and the primary action fill with light
+   tokens (accent, neutral purple, green, amber); white ink is lost on them. */
+:global(html[data-theme='dark']) .badge[data-source='clipper'],
+:global(html[data-theme='dark']) .badge[data-source='generated'],
+:global(html[data-theme='dark']) .badge[data-source='design-system'],
+:global(html[data-theme='dark']) .badge[data-source='agent-task'],
+:global(html[data-theme='dark']) .selectCheck[data-checked='true'],
+:global(html[data-theme='dark']) .chatBtn {
+  color: var(--accent-contrast);
+}
+:global(html[data-theme='dark']) .dropOverlay {
+  background: color-mix(in srgb, var(--accent) 10%, var(--scrim-tint));
+}

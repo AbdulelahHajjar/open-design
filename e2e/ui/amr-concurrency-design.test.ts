@@ -12,6 +12,7 @@ test('[P0] F04 Go Owner concurrency rejection renders the approved Cloud offer a
   await page.addInitScript(() => {
     localStorage.setItem('open-design:locale', 'zh-CN');
     localStorage.setItem('open-design:locale-source', 'manual');
+    localStorage.setItem('open-design:theme', 'light');
   });
   await applyStandardMocks(page);
   await mockSignedInVelaAccount(page, { plan: 'go', balanceUsd: '100.00' });
@@ -145,8 +146,8 @@ test('[P0] F04 Go Owner concurrency rejection renders the approved Cloud offer a
         width: rect.width, height: rect.height, font: style.font, lineHeight: style.lineHeight,
         background: style.backgroundColor, color: style.color, padding: style.padding, margin: style.margin };
     })), null, 2), contentType: 'application/json' });
-  // The current app deliberately stays light on a dark OS. F04 must follow
-  // that existing appearance policy without adding a separate theme surface.
+  // A pinned Light theme stays light on a dark OS (the init script stores
+  // the Light preference); F04 must not add a separate theme surface.
   await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(dialog).toHaveCSS('background-color', 'rgb(255, 255, 255)');

@@ -1,0 +1,579 @@
+/* Dark theme overrides: shell-home. See README.md for the rules.
+
+   Upstream sources: styles/shell.css, styles/home/*.css, styles/social-share.css,
+   plus the inline colors of the Home/entry components (NewProjectPanel,
+   EntryBlankState, RecentProjectsStrip, DesignsTab). Sections follow the
+   upstream file; each selector repeats the upstream selector in full.
+
+   Recurring treatments:
+   - An inverted-neutral fill (light: `--text-strong` ground, `--bg` ink) is a
+     primary action. In dark it takes the accent with dark ink, as
+     `button.primary` does in base.css.
+   - White ink on an accent fill becomes `--accent-contrast`.
+   - Inset "glass" top edges drawn with 40-70% white become
+     `--glass-edge-highlight`; at full strength they read as bright seams.
+   - Sheens and skeleton sweeps drawn with white at 30-50% drop to a faint
+     foreground fill. */
+
+/* ── styles/shell.css ─────────────────────────────────────────────── */
+
+/* Radial template fan: the hovered wedge and its icon take the brand pair
+   instead of a whisper-green fill and a deep-green ink. */
+html[data-theme='dark'] .workspace-radial-sector-path:hover,
+html[data-theme='dark'] .workspace-radial-sector-path.is-hover {
+  fill: var(--brand-surface);
+}
+html[data-theme='dark'] .workspace-radial-icon-btn.is-hover,
+html[data-theme='dark'] .workspace-radial-close:hover:not(:disabled) {
+  color: var(--brand-ink);
+}
+
+/* The active tab's inset bottom edge masks the strip border; a 68% white
+   edge is a bright seam here, so it takes the tab's own ground. */
+html[data-theme='dark'] .workspace-tab.is-active {
+  box-shadow: 0 -1px 0 var(--bg-panel) inset;
+}
+
+html[data-theme='dark'] .chrome-action-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .chrome-action-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .chrome-action-export,
+html[data-theme='dark'] .chrome-action-export:hover:not(:disabled) {
+  color: var(--accent-contrast);
+}
+
+/* Share popover shell: a white card with #333 ink. */
+html[data-theme='dark'] .chrome-unified-popover.chrome-unified-popover--share {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+}
+
+/* Version history: the selected stop is an ink pill with brand-green ink in
+   light, which is green on near-white here. It becomes a solid green pill,
+   still distinct from the current stop's green ring. */
+html[data-theme='dark'] .artifact-version-card.is-selected .artifact-version-card__mark {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--accent-contrast);
+}
+/* !important: upstream declares the restore button's colors !important. */
+html[data-theme='dark'] .artifact-version-panel__restore {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent-contrast) !important;
+}
+html[data-theme='dark'] .artifact-version-panel__restore:hover:not(:disabled) {
+  background: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+}
+
+html[data-theme='dark'] .avatar-amr-row__upgrade,
+html[data-theme='dark'] .avatar-amr-row__upgrade:visited {
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .avatar-static-value {
+  background: var(--bg);
+}
+/* API-mode dot: a near-black disc vanishes into the pill; invert the ramp. */
+html[data-theme='dark'] .env-pill-dot[data-mode="api"] {
+  background: linear-gradient(135deg, var(--text-faint) 0%, var(--border-selected) 100%);
+}
+
+/* Focus mode letterboxes a deck in `--text-strong`, near-black in light.
+   Keep it dark rather than let it turn near-white. */
+html[data-theme='dark'] .split.is-resizing-chat .html-viewer:has(.deck-nav) .preview-frame-clip,
+html[data-theme='dark'] .split.split-focus .html-viewer:has(.deck-nav) .preview-frame-clip {
+  background: var(--bg);
+}
+
+html[data-theme='dark'] .comment-float-host {
+  border-color: var(--border);
+  background: var(--bg-panel);
+}
+
+/* ── styles/home/entry-layout.css ─────────────────────────────────── */
+
+/* Quiet rail ink (recent heading + project rows). Upstream's dark value, a
+   52% alpha of --text, falls under the readable floor; this one is opaque. */
+html[data-theme='dark'] .entry-nav-rail {
+  --rail-ink-quiet: var(--text-soft);
+}
+
+/* Signed-out tip: upstream's dark badge is --bg, which on --bg-panel hides
+   the pill's shape. The neon ink stays; the pending state keeps its own
+   upstream fill. */
+html[data-theme='dark'] .entry-local-mode-tip__login-badge:not(.is-pending) {
+  background: var(--bg-muted);
+}
+html[data-theme='dark'] .entry-local-mode-tip__title-icon {
+  background: var(--brand-weak);
+}
+
+/* Hover tooltips drawn as ::after bubbles: the near-white inverted bubble
+   becomes the raised surface, matching `.od-tooltip-layer`. */
+html[data-theme='dark'] .entry-nav-rail [data-tooltip]:not(.od-tooltip)::after,
+html[data-theme='dark'] .entry-main__topbar-chips--icon-only [data-tooltip]:not(.od-tooltip)::after {
+  background: var(--bg-elevated);
+  color: var(--text-strong);
+  box-shadow: 0 0 0 1px var(--border), var(--shadow-md);
+}
+
+html[data-theme='dark'] .entry-nav-rail__recent-unread {
+  background: var(--blue);
+}
+
+/* Main content card: a milky 85% white frost in light. The solid fallbacks
+   upstream applies under reduced transparency / no backdrop-filter are
+   re-applied below, since this rule outranks them. */
+html[data-theme='dark'] .entry-main--scroll {
+  --entry-content-surface: color-mix(in srgb, var(--bg-panel) 85%, transparent);
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-theme='dark'] .entry-main--scroll {
+    --entry-content-surface: var(--bg);
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme='dark'] .entry-main--scroll {
+    --entry-content-surface: var(--bg);
+  }
+}
+
+/* Model tier badges: the inset top edge is a 28% white line. */
+html[data-theme='dark'] .model-select-searchable__value-badge,
+html[data-theme='dark'] .model-select-searchable__option-badge,
+html[data-theme='dark'] .onboarding-view__select-badge {
+  box-shadow: inset 0 1px 0 var(--glass-edge-highlight);
+}
+
+/* Empty-state CTA: the brand pair (green ink on an ink pill) keeps its
+   identity on a raised dark pill instead of a near-white one. */
+html[data-theme='dark'] .entry-blank__cta {
+  background: var(--bg-muted);
+  color: var(--brand);
+}
+html[data-theme='dark'] .entry-blank__cta:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bg-muted) 84%, var(--brand));
+}
+/* Empty-state mark (EntryBlankState.tsx): its stroke gradient runs from a
+   near-black green, which disappears on the dark ground. CSS stop-color beats
+   the stopColor attribute. */
+html[data-theme='dark'] .entry-blank__mark stop:nth-child(1) {
+  stop-color: color-mix(in srgb, var(--green) 55%, var(--brand-weak));
+}
+html[data-theme='dark'] .entry-blank__mark stop:nth-child(2) {
+  stop-color: var(--green);
+}
+html[data-theme='dark'] .entry-blank__mark stop:nth-child(3) {
+  stop-color: var(--brand);
+}
+
+html[data-theme='dark'] .onboarding-cloud__primary,
+html[data-theme='dark'] .onboarding-cloud__primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+html[data-theme='dark'] .credits-panel__upgrade {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .credits-panel__upgrade:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+html[data-theme='dark'] .credits-panel__member-notice button {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* Top-right credits capsule. Scoped to the non-upgrade capsule: the upgrade
+   variant paints its own green ground at a lower specificity. */
+html[data-theme='dark'] .entry-top-right-account-pill:not(.entry-top-right-account-pill--upgrade) {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+html[data-theme='dark'] .entry-top-right-account-pill:not(.entry-top-right-account-pill--upgrade):hover,
+html[data-theme='dark'] .entry-top-right-account-pill:not(.entry-top-right-account-pill--upgrade):has(
+    .entry-top-right-credits[aria-expanded='true']
+  ) {
+  background: var(--bg-subtle);
+  color: var(--text-strong);
+}
+
+/* Credits card: an ink-black (#202020) card with a near-white upgrade pill.
+   Every current caller also carries PersonalPlanCard.module.css's `.card`,
+   whose dark block wins; these match it for any caller that does not. */
+html[data-theme='dark'] .entry-nav-rail__menu-credits {
+  background: var(--bg-elevated);
+  color: var(--text-strong);
+}
+html[data-theme='dark'] .entry-nav-rail__menu-credits-upgrade {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .entry-nav-rail__menu-credits-upgrade:hover:not(:disabled),
+html[data-theme='dark'] .entry-nav-rail__menu-credits-upgrade:focus-visible {
+  background: var(--accent-hover);
+  color: var(--accent-contrast);
+}
+
+html[data-theme='dark']
+  [data-testid="design-systems-tab"]
+  > aside
+  div:has(> [data-testid^="design-system-card-"][aria-pressed="true"]) {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+}
+
+html[data-theme='dark'] .entry-invite__team-avatar {
+  background: var(--bg-muted);
+  color: var(--text-strong);
+}
+html[data-theme='dark'] .entry-invite__btn.is-primary,
+html[data-theme='dark'] .entry-invite__btn.is-primary:hover:not(:disabled) {
+  color: var(--accent-contrast);
+}
+/* Invite illustration: the one ink card among panel cards. */
+html[data-theme='dark'] .entry-invite__art-card--2 {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+/* Avatar cluster: white rings and grounds become the art panel's surfaces. */
+html[data-theme='dark'] .entry-invite__art-avatar {
+  border-color: var(--bg-subtle);
+  background: var(--bg-elevated);
+}
+html[data-theme='dark'] .entry-invite__art-avatar--invite {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--bg-elevated));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
+}
+
+html[data-theme='dark'] .demo-celebrate-toast {
+  background: var(--green);
+  color: var(--accent-contrast);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--green) 30%, transparent);
+}
+
+/* Upgrade-team dialog: #353535 inks are dark-on-dark. */
+html[data-theme='dark'] .upgrade-team__plan-top small {
+  color: var(--text-muted);
+}
+html[data-theme='dark'] .upgrade-team__benefits svg {
+  color: var(--text);
+}
+
+html[data-theme='dark'] .inline-switcher__account-upgrade {
+  color: var(--accent-contrast);
+}
+
+/* ── styles/home/home-hero.css ────────────────────────────────────── */
+
+/* Inset top edges at 42-70% white on fields, icon tiles and search. The
+   compact icon variants clear their shadow upstream; leave them alone. */
+html[data-theme='dark'] .home-hero__input-card .plugin-inputs-form__field,
+html[data-theme='dark'] .home-hero__ds-option-preview:not(.home-hero__ds-option-preview--compact),
+html[data-theme='dark'] .home-hero__footer-option-icon:not(.home-hero__footer-option-icon--compact),
+html[data-theme='dark'] .home-hero__model-option-icon:not(.home-hero__model-option-icon--compact),
+html[data-theme='dark'] .home-hero__ratio-option-icon:not(.home-hero__ratio-option-icon--compact) {
+  box-shadow: inset 0 1px 0 var(--glass-edge-highlight);
+}
+html[data-theme='dark']
+  .home-hero__footer-option--select[data-field-name='designSystem']
+  .home-hero__footer-select-search
+  input {
+  box-shadow: inset 0 1px 0 var(--glass-edge-highlight), var(--shadow-xs);
+}
+html[data-theme='dark']
+  .home-hero__footer-option--select[data-field-name='designSystem']
+  .home-hero__footer-select-search
+  input:focus {
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--accent) 10%, transparent),
+    inset 0 1px 0 var(--glass-edge-highlight);
+}
+
+/* Provider tiles whose ink is near-black: the tile's tint and rim are mixed
+   from that ink, so both vanish. The logo <img> filters live in content.css. */
+html[data-theme='dark'] .home-hero__model-option-icon--openai,
+html[data-theme='dark'] .home-hero__model-option-icon--dalle,
+html[data-theme='dark'] .home-hero__model-option-icon--grok,
+html[data-theme='dark'] .home-hero__model-option-icon--elevenlabs,
+html[data-theme='dark'] .home-hero__model-option-icon--suno {
+  color: var(--text);
+}
+html[data-theme='dark'] .home-hero__model-option-icon--router,
+html[data-theme='dark'] .home-hero__ratio-option-icon--portrait {
+  color: var(--text-muted);
+}
+
+/* Design-system picker rows: a pale blue-grey hover and a pale mauve
+   selected ground. */
+html[data-theme='dark'] .home-hero__footer-option--select[data-field-name='designSystem'] .home-hero__footer-select-item:hover,
+html[data-theme='dark'] .home-hero__footer-option--select[data-field-name='designSystem'] .home-hero__footer-select-item:focus-visible {
+  background: color-mix(in srgb, var(--bg-subtle) 78%, var(--bg-panel));
+}
+html[data-theme='dark'] .home-hero__footer-option--select[data-field-name='designSystem'] .home-hero__footer-select-item.is-selected {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-subtle));
+}
+
+/* Attention sheen: a 50% white glint flares on dark surfaces. */
+html[data-theme='dark'] .home-hero__attention-sheen::after {
+  background: linear-gradient(
+    105deg,
+    transparent,
+    color-mix(in srgb, var(--text-strong) 22%, transparent),
+    transparent
+  );
+}
+html[data-theme='dark'] .home-hero__type-tab.home-hero__attention-sheen::after,
+html[data-theme='dark'] .home-hero__rail-chip.home-hero__attention-sheen::after,
+html[data-theme='dark'] .home-hero__plugin-preset.home-hero__attention-sheen::after {
+  background: linear-gradient(
+    105deg,
+    transparent,
+    color-mix(in srgb, var(--accent) 30%, transparent),
+    transparent
+  );
+}
+
+html[data-theme='dark'] .home-hero-confirm__primary,
+html[data-theme='dark'] .home-hero-confirm__primary:hover {
+  color: var(--accent-contrast);
+}
+
+/* Switch knob on the accent track: dark ink reads; white does not. */
+html[data-theme='dark'] .home-hero__footer-switch.is-on i::after {
+  background: var(--accent-contrast);
+}
+
+/* ── styles/home/plus-menu.css ────────────────────────────────────── */
+
+/* The mode picker scopes --green / --green-bg to a deep green on a whisper
+   tint; restore the brand pair. */
+html[data-theme='dark'] .composer-mode {
+  --green: var(--brand-ink);
+  --green-bg: var(--brand-surface);
+}
+
+/* ── styles/home/recent-projects.css ──────────────────────────────── */
+
+html[data-theme='dark'] .recent-projects__deck-cover-loading {
+  background:
+    linear-gradient(110deg, transparent 30%, var(--bg-fill) 50%, transparent 70%) 0 0 / 200% 100%,
+    var(--bg-subtle);
+}
+/* Owner avatar fallback: a near-black dot. */
+html[data-theme='dark'] .recent-projects__card-owner {
+  background: var(--border-strong);
+  color: var(--text-strong);
+}
+/* Sharing veil over a card cover (RecentProjectsStrip.tsx), white 55% inline.
+   !important: beats the inline background. */
+html[data-theme='dark'] .recent-projects__card-sharing {
+  background: color-mix(in srgb, var(--bg) 55%, transparent) !important;
+}
+
+/* Generated placeholder covers (projectCover in RecentProjectsStrip.tsx and
+   DesignsTab.tsx): pastel gradients painted inline. The same colors arrive as
+   --cover-* custom properties and are sunk into the dark ground here. Logo
+   covers keep the pastel: an authored logo is drawn for a light ground.
+   !important: beats the inline background. */
+html[data-theme='dark'] .recent-projects__card-thumb:not(.recent-projects__card-thumb-logo)[style*='--cover-tint'],
+html[data-theme='dark'] .design-card-thumb.project-thumb:not(.project-thumb-logo)[style*='--cover-tint'],
+html[data-theme='dark'] .project-search-item-thumb[style*='--cover-tint'] {
+  background:
+    radial-gradient(
+      circle at 30% 28%,
+      color-mix(in srgb, var(--cover-glow) 40%, transparent),
+      transparent 42%
+    ),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--cover-tint) 18%, var(--bg-subtle)),
+      color-mix(in srgb, var(--cover-tint-2) 18%, var(--bg-subtle))
+    ) !important;
+}
+
+/* ── styles/home/plugins-home.css ─────────────────────────────────── */
+
+html[data-theme='dark'] .plugins-home__chip--saved.is-active,
+html[data-theme='dark'] .plugins-home__chip--saved.is-active .plugins-home__chip-count,
+html[data-theme='dark'] .plugins-home__pill.is-active,
+html[data-theme='dark'] .plugins-home__pill.is-active .plugins-home__pill-count,
+html[data-theme='dark'] .plugins-home__pill--all.is-active,
+html[data-theme='dark'] .plugins-home__pill--all.is-active .plugins-home__pill-count {
+  color: var(--accent-contrast);
+}
+
+html[data-theme='dark'] .plugins-home__media-skeleton {
+  background:
+    linear-gradient(110deg, transparent 30%, var(--bg-fill) 50%, transparent 70%) 0 0 / 200% 100%,
+    var(--bg-subtle);
+}
+/* No-media card: the accent glow sits on an accent-tint ramp mixed with
+   white, which is a pale card here. */
+html[data-theme='dark'] .plugins-home__media-fallback {
+  background:
+    radial-gradient(
+      circle at 22% 18%,
+      color-mix(in srgb, var(--accent) 18%, transparent),
+      transparent 34%
+    ),
+    linear-gradient(135deg, var(--accent-tint), var(--bg-subtle));
+}
+
+html[data-theme='dark'] .plugins-home__card-save.is-saved {
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-elevated));
+}
+
+/* Card hover actions. They sit on a dark scrim over the cover; the
+   translucent secondary stays, the white primary takes the accent, and the
+   use-menu opens as a dark menu. */
+html[data-theme='dark'] .plugins-home__action--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .plugins-home__action--primary:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+}
+html[data-theme='dark'] .plugins-home__use-toggle {
+  border-left-color: color-mix(in srgb, var(--accent-contrast) 18%, transparent);
+}
+html[data-theme='dark'] .plugins-home__use-menu-list {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+}
+html[data-theme='dark'] button.plugins-home__use-menu-item:hover:not(:disabled),
+html[data-theme='dark'] button.plugins-home__use-menu-item:focus-visible {
+  background: var(--bg-subtle);
+  color: var(--text-strong);
+}
+
+/* ── styles/home/plugin-marketplace-demo.css ──────────────────────── */
+
+/* Segmented controls: the active segment is a white tab on a faint track. */
+html[data-theme='dark'] .plugin-marketplace__switch button.is-active,
+html[data-theme='dark'] .plugin-marketplace__filters button.is-active,
+html[data-theme='dark'] .plugin-marketplace__category-tags button.is-active,
+html[data-theme='dark'] .plugin-marketplace__create-tabs button.is-active {
+  background: var(--bg-muted);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Plugin icon tiles: a 55% white specular blob. The brand tiles
+   (`--github`, `--notion`, …) paint their own ground and are excluded. */
+html[data-theme='dark'] .plugin-marketplace__icon:not([class*='plugin-marketplace__icon--']),
+html[data-theme='dark'] .plugin-marketplace__detail-icon:not([class*='plugin-marketplace__icon--']) {
+  background:
+    radial-gradient(
+      circle at 24% 18%,
+      color-mix(in srgb, var(--text-strong) 14%, transparent),
+      transparent 32%
+    ),
+    color-mix(in srgb, var(--plugin-accent, var(--accent)) 16%, var(--bg-panel));
+}
+
+html[data-theme='dark'] .skill-detail__title-row button {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .skill-detail__notice {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+/* Suite connection switch: a --bg knob is dark-on-dark when off, and the on
+   track is light, so the knob inverts with the state. */
+html[data-theme='dark'] .plugin-suite-detail__switch span::after {
+  background: var(--text-strong);
+}
+html[data-theme='dark'] .plugin-suite-detail__switch input:checked + span::after {
+  background: var(--accent-contrast);
+}
+
+/* ── styles/home/plugins-view.css ─────────────────────────────────── */
+
+html[data-theme='dark'] .plugins-view__primary {
+  color: var(--accent-contrast);
+}
+
+/* ── styles/home/tasks.css ────────────────────────────────────────── */
+
+html[data-theme='dark'] .automations-view__new {
+  box-shadow: 0 1px 0 var(--glass-edge-highlight) inset, var(--shadow-xs);
+}
+html[data-theme='dark'] .automations-view__new:hover {
+  box-shadow:
+    0 1px 0 var(--glass-edge-highlight) inset,
+    0 6px 16px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+html[data-theme='dark'] .automation-mention-item.is-selected .automation-mention-item__icon,
+html[data-theme='dark'] .automation-popover__weekday.is-active {
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .automation-modal__submit,
+html[data-theme='dark'] .automation-popover__done-btn {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+html[data-theme='dark'] .automation-popover__done-btn:hover {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+
+/* ── NewProjectPanel.tsx fidelity thumbnails ──────────────────────────
+   The thumb grounds live in workspace/artifacts.css; the art is inline SVG
+   with literal fills. CSS fill/stroke beat SVG presentation attributes, so
+   the art is re-inked by position. The wireframe card is a pale paper. */
+html[data-theme='dark'] .fidelity-thumb-wireframe {
+  background: var(--bg-panel);
+}
+/* Wireframe: rect 1 is the title bar, rect 5 the outlined card, the rest are
+   text lines; the circle is outlined. */
+html[data-theme='dark'] .fidelity-thumb-wireframe svg rect {
+  fill: var(--border);
+}
+html[data-theme='dark'] .fidelity-thumb-wireframe svg rect:nth-of-type(1) {
+  fill: var(--border-selected);
+}
+html[data-theme='dark'] .fidelity-thumb-wireframe svg rect:nth-of-type(5) {
+  fill: none;
+  stroke: var(--border-selected);
+}
+html[data-theme='dark'] .fidelity-thumb-wireframe svg circle {
+  stroke: var(--border-selected);
+}
+/* High fidelity: rect 1 is the headline, rects 2/7 and 3/8 the strong and
+   weak body lines, rect 5 the warm card; the brand-green rects stay. */
+html[data-theme='dark'] .fidelity-thumb-high-fidelity svg rect:nth-of-type(1) {
+  fill: var(--text-strong);
+}
+html[data-theme='dark'] .fidelity-thumb-high-fidelity svg rect:nth-of-type(2),
+html[data-theme='dark'] .fidelity-thumb-high-fidelity svg rect:nth-of-type(7) {
+  fill: var(--text-soft);
+}
+html[data-theme='dark'] .fidelity-thumb-high-fidelity svg rect:nth-of-type(3),
+html[data-theme='dark'] .fidelity-thumb-high-fidelity svg rect:nth-of-type(8) {
+  fill: var(--border-selected);
+}
+html[data-theme='dark'] .fidelity-thumb-high-fidelity svg rect:nth-of-type(5) {
+  fill: color-mix(in srgb, var(--red) 14%, var(--bg-subtle));
+}

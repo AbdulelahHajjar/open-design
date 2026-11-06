@@ -50,3 +50,26 @@
   color: #BDBDB8;
   opacity: 1;
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+/* Share is the toolbar's primary action (accent, dark ink); Export is a
+   neutral step above the chrome. */
+:global(html[data-theme='dark']) .toolbar {
+  --toolbar-action-background: var(--accent);
+  --toolbar-action-color: var(--accent-contrast);
+}
+
+:global(html[data-theme='dark']) .toolbarSecondary {
+  --toolbar-action-background: var(--bg-muted);
+  --toolbar-action-color: var(--text);
+}
+
+:global(html[data-theme='dark']) :global(.app .ws-tabs-actions .chrome-action.chrome-action-secondary).toolbar:disabled {
+  background: var(--bg-subtle);
+  color: var(--text-faint);
+}
+
+:global(html[data-theme='dark']) :global(.artifact-card) .card:global(.artifact-card-act):disabled {
+  background: var(--bg-subtle);
+  color: var(--text-faint);
+}

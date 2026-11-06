@@ -227,3 +227,20 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* ── dark theme (fork) · see styles/theme-dark/README.md ── */
+:global(html[data-theme='dark']) .button:hover,
+:global(html[data-theme='dark']) .sizeButton:hover,
+:global(html[data-theme='dark']) .sizeOption:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+:global(html[data-theme='dark']) .buttonActive {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+:global(html[data-theme='dark']) .sizeOptionActive {
+  color: var(--accent);
+}
+:global(html[data-theme='dark']) .sliderRow > input[type='range'] {
+  accent-color: var(--accent);
+}

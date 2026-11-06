@@ -15,6 +15,7 @@ import { Fragment, useEffect, useRef, useState, type MouseEvent, type ReactNode 
 import { useT } from '../i18n';
 import { copyToClipboard } from '../lib/copy-to-clipboard';
 import { Icon } from '../components/Icon';
+import { useResolvedTheme } from '../state/theme-preference';
 
 export type MarkdownLinkClickHandler = (
   href: string,
@@ -435,6 +436,7 @@ function MarkdownCodeBlock({
   const lineCount = body.split('\n').length;
   const collapsible = lineCount > CODE_COLLAPSE_LINE_THRESHOLD;
   const [collapsed, setCollapsed] = useState(collapsible);
+  const theme = useResolvedTheme();
 
   useEffect(() => () => {
     if (resetTimerRef.current != null) window.clearTimeout(resetTimerRef.current);
@@ -452,7 +454,8 @@ function MarkdownCodeBlock({
       }),
     ).catch(() => {});
     return () => { cancelled = true; };
-  }, [body, lang, syntaxHighlight]);
+    // `theme` re-runs the highlight when the app theme switches under it.
+  }, [body, lang, syntaxHighlight, theme]);
 
   async function handleCopy() {
     const ok = await copyToClipboard(body);
