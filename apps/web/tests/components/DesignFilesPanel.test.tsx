@@ -141,6 +141,24 @@ function clickTab(id: string) {
   fireEvent.click(screen.getByTestId(`design-files-tab-${id}`));
 }
 
+function selectedTabId(): string | undefined {
+  return document
+    .querySelector<HTMLElement>('.df-tab[aria-selected="true"]')
+    ?.dataset.testid?.replace("design-files-tab-", "");
+}
+
+function openFolder(name: string) {
+  const row = Array.from(document.querySelectorAll(".df-dir-row")).find(
+    (candidate) =>
+      candidate.querySelector(".df-row-name")?.textContent === name,
+  );
+  fireEvent.click(row!.querySelector(".df-row-name-btn")!);
+}
+
+function clickRootCrumb() {
+  fireEvent.click(document.querySelector(".df-breadcrumb-btn")!);
+}
+
 describe("DesignFilesPanel sections", () => {
   afterEach(() => {
     cleanup();
@@ -819,9 +837,8 @@ describe("DesignFilesPanel directory navigation", () => {
     expect(
       document.querySelector(".df-breadcrumb-current")?.textContent,
     ).not.toBe("assets");
-    // Back at the root, the tab choice resets to the default Pages tab.
-    expect(screen.getByTestId("design-file-row-top.html")).toBeTruthy();
-    clickTab("folders");
+    // Back at the root, the tab picked there is still selected.
+    expect(selectedTabId()).toBe("folders");
     expect(document.querySelectorAll(".df-dir-row").length).toBe(1);
   });
 
@@ -988,6 +1005,94 @@ describe("DesignFilesPanel current-directory sync", () => {
     clickTab("folders");
     fireEvent.click(document.querySelector(".df-dir-row .df-row-name-btn")!);
     expect(onCurrentDirChange).toHaveBeenLastCalledWith("assets");
+  });
+});
+
+describe("DesignFilesPanel tab memory across folders", () => {
+  afterEach(() => cleanup());
+
+  // `assets` holds pages, images, and a subfolder; `leaf` holds only pages.
+  const projectFiles = () => [
+    file({ name: "top.html", kind: "html" }),
+    file({ name: "assets/page.html", kind: "html" }),
+    file({ name: "assets/logo.png", kind: "image" }),
+    file({ name: "assets/icons/star.png", kind: "image" }),
+    file({ name: "leaf/only.html", kind: "html" }),
+  ];
+
+  it("opens the root on Pages until a tab is picked", () => {
+    renderPanel(projectFiles());
+
+    expect(selectedTabId()).toBe("cat:html");
+  });
+
+  it("stays on Folders when opening a folder that has pages and subfolders", () => {
+    renderPanel(projectFiles());
+
+    clickTab("folders");
+    openFolder("assets");
+
+    expect(selectedTabId()).toBe("folders");
+    expect(screen.getByTestId("design-files-tab-cat:html")).toBeTruthy();
+    expect(document.querySelector(".df-dir-row")?.textContent).toContain("icons");
+  });
+
+  it("falls back to Pages when the opened folder has no subfolders", () => {
+    renderPanel(projectFiles());
+
+    clickTab("folders");
+    openFolder("leaf");
+
+    expect(selectedTabId()).toBe("cat:html");
+    expect(screen.getByTestId("design-file-row-leaf/only.html")).toBeTruthy();
+  });
+
+  it("restores Folders at the root after visiting a folder without subfolders", () => {
+    renderPanel(projectFiles());
+
+    clickTab("folders");
+    openFolder("leaf");
+    clickRootCrumb();
+
+    expect(selectedTabId()).toBe("folders");
+  });
+
+  it("keeps each folder's own picked tab", () => {
+    renderPanel(projectFiles());
+
+    clickTab("folders");
+    openFolder("assets");
+    clickTab("cat:image");
+
+    clickRootCrumb();
+    expect(selectedTabId()).toBe("folders");
+
+    openFolder("assets");
+    expect(selectedTabId()).toBe("cat:image");
+  });
+
+  it("restores picked tabs when remounted with navState from a previous render", () => {
+    let saved: DesignFilesNavState | undefined;
+    const { unmount } = renderPanel(projectFiles(), {
+      onNavStateChange: (state) => {
+        saved = state;
+      },
+    });
+
+    clickTab("folders");
+    openFolder("assets");
+    clickTab("cat:image");
+
+    unmount();
+    renderPanel(projectFiles(), { navState: saved });
+
+    expect(document.querySelector(".df-breadcrumb-current")?.textContent).toBe(
+      "assets",
+    );
+    expect(selectedTabId()).toBe("cat:image");
+
+    clickRootCrumb();
+    expect(selectedTabId()).toBe("folders");
   });
 });
 

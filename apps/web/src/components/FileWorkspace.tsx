@@ -1281,6 +1281,7 @@ function createDefaultDesignFilesNavState(): DesignFilesNavState {
   return {
     kindFilter: new Set(),
     currentDir: '',
+    tabByDir: new Map(),
     page: 0,
     pageSize: 30,
   };

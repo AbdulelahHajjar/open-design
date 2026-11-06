@@ -46,6 +46,8 @@ type TranslateFn = (key: keyof Dict, vars?: Record<string, string | number>) => 
 export interface DesignFilesNavState {
   kindFilter: Set<ProjectFileKind>;
   currentDir: string;
+  /** Category tab the user picked in each directory, keyed by directory path. */
+  tabByDir: ReadonlyMap<string, string>;
   page: number;
   pageSize: number | 'all';
 }
@@ -561,6 +563,9 @@ export function DesignFilesPanel({
   const [renaming, setRenaming] = useState<{ name: string; draft: string; saving: boolean } | null>(null);
   const [copiedLocalPath, setCopiedLocalPath] = useState<string | null>(null);
   const [currentDir, setCurrentDir] = useState<string>(() => navState?.currentDir ?? '');
+  const [tabByDir, setTabByDir] = useState<ReadonlyMap<string, string>>(
+    () => navState?.tabByDir ?? new Map(),
+  );
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const projectMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -575,10 +580,11 @@ export function DesignFilesPanel({
     onNavStateChange?.({
       kindFilter: navState?.kindFilter ?? new Set(),
       currentDir,
+      tabByDir,
       page: 0,
       pageSize: 30,
     });
-  }, [currentDir, navState?.kindFilter, onNavStateChange]);
+  }, [currentDir, tabByDir, navState?.kindFilter, onNavStateChange]);
 
   // Derive immediate subdirectories and files at the current directory level
   // from the flat files list. Files with names like "a/b/c.html" contribute
@@ -631,16 +637,11 @@ export function DesignFilesPanel({
     );
   }, [filesAtCurrentDir]);
 
-  // Active category tab (null = default). Declared before the reset effect
-  // below that clears it on directory change.
-  const [activeTab, setActiveTab] = useState<string | null>(null);
-
-  // Reset selection, renaming, and the picked tab when the user navigates
-  // into or out of a directory — each level has its own set of groups.
+  // Reset selection and renaming when the user navigates into or out of a
+  // directory.
   useEffect(() => {
     setSelected(new Set());
     setRenaming(null);
-    setActiveTab(null);
   }, [currentDir]);
 
   // Navigate up to the nearest ancestor that still exists when the current
@@ -699,6 +700,10 @@ export function DesignFilesPanel({
     }
     return tabs;
   }, [liveArtifacts, pluginFolders, dirsAtCurrentDir, sections, t]);
+  // Each level has its own set of groups, so a pick applies to one directory
+  // only. A subfolder with no pick prefers Folders: folder rows only render on
+  // that tab, so it is the tab the user entered the subfolder from.
+  const activeTab = tabByDir.get(currentDir) ?? (currentDir === '' ? null : 'folders');
   // Pages are the primary artifact — land on them by default. Derived (not
   // synced through an effect) so a picked tab that empties out (last file
   // deleted, directory change) falls back instantly without a stale frame.
@@ -1760,7 +1765,7 @@ export function DesignFilesPanel({
                       aria-selected={resolvedTab === tab.id}
                       className={`df-tab ${resolvedTab === tab.id ? 'active' : ''}`}
                       data-testid={`design-files-tab-${tab.id}`}
-                      onClick={() => setActiveTab(tab.id)}
+                      onClick={() => setTabByDir((prev) => new Map(prev).set(currentDir, tab.id))}
                     >
                       {tab.label}
                       <span className="df-tab-count">{tab.count}</span>

@@ -1213,8 +1213,8 @@ describe('FileWorkspace upload input', () => {
 
     const { container, rerender } = render(<FileWorkspace {...baseProps} />);
 
-    // Folder rows live behind the Folders category tab (the default tab is
-    // Pages whenever HTML files exist at the current level).
+    // Folder rows live behind the Folders category tab (the root opens on
+    // Pages whenever the project has HTML files).
     fireEvent.click(screen.getByTestId('design-files-tab-folders'));
     fireEvent.click(container.querySelector('.df-dir-row .df-row-name-btn')!);
     expect(container.querySelector('.df-breadcrumb-current')?.textContent).toBe('assets');
